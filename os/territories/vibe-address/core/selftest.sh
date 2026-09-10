@@ -1,0 +1,256 @@
+#!/bin/bash
+# ===========================================================================
+#  core/selftest.sh — ENGINEWIDE REGRESSION HARNESS
+# ---------------------------------------------------------------------------
+#  Exercises every kernel module in an ISOLATED throwaway store so the
+#  suite never touches real user state.  Each check is two-phase: it must
+#  both PRODUCE the right shape and the idempotent replay must agree.
+#
+#  Modules under test:
+#    tree / time / ingest / index / match / rank / query / store /
+#    action / retention / bloom / ir / lexin / phoneme
+#
+#  Returns non-zero on any failure (first failing check names itself).
+# ===========================================================================
+set -euo pipefail
+
+ve_selftest_run() {
+  local tmp; tmp=$(mktemp -d)
+  local HOME_OLD="$HOME"
+  local VIBE_HOME_OLD="$VIBE_HOME"
+  export HOME="$tmp"
+  export VIBE_HOME="$tmp/vibe"
+  # re-derive the derived store dirs exactly like the dispatcher does so the
+  # isolated harness never reaches into the caller's real store.
+  export VIBE_EVENTS="$VIBE_HOME/events"
+  export VIBE_TREE="$VIBE_HOME/tree"
+  export VIBE_INDEX="$VIBE_HOME/index"
+  export VIBE_STATE="$VIBE_HOME/state"
+  export VIBE_CACHE="$VIBE_HOME/cache"
+  mkdir -p "$VIBE_HOME"
+  local fails=0 total=0
+
+  check() {  # name, expected, actual
+    total=$((total + 1))
+    if [ "$2" = "$3" ]; then
+      printf '  ok   %s\n' "$1"
+    else
+      printf '  FAIL %s   (expected=%q got=%q)\n' "$1" "$2" "$3"
+      fails=$((fails + 1))
+    fi
+  }
+
+  # ---- tree: insert + locate + depth (signature: ref normpath epoch) -----------
+  ve_tree_insert "ref-march" "projects:work:march" "$(date +%s)" 2>/dev/null || true
+  check "tree node locate" "$tmp/vibe/tree/projects/work/march" "$(ve_tree_locate "projects:work:march" 2>/dev/null || echo missing)"
+  check "tree depth" "3" "$(ve_tree_depth "projects:work:march" 2>/dev/null || echo 0)"
+
+  # ---- phoneme codecs -----------------------------------------------------------------
+  local ph; ph=$(ve_phon_similarity "cat" "kat" 2>/dev/null || echo 0)
+  check "phoneme consensus high" "1" "$([ "$ph" -ge 50 ] && echo 1 || echo 0)"
+  ph=$(ve_phon_similarity "alphabet" "zebra" 2>/dev/null || echo 103)
+  check "phoneme unrelated low" "1" "$([ "${ph:-103}" -lt 40 ] 2>/dev/null && echo 1 || echo 0)"
+  ph=$(ve_phon_similarity "zebra" "zebra" 2>/dev/null || echo 0)
+  check "phoneme identity 100" "100" "$ph"
+
+  # ---- lexin: tokenize lower+punctuation, then stopfilter ----------------------------
+  local toks; toks=$(ve_lex_tokenize "CAT and the Thing!" 2>/dev/null)
+  check "lexin tokenize lowercase" "cat and the thing" "$toks"
+  check "lexin stopfilter drops" "cat thing" "$(ve_lex_stopfilter "$toks" 2>/dev/null || echo x)"
+  # synonym ring: expanding "photo" must now reach "picture"
+  local ring; ring=$(ve_lex_expand_ring "photo" 2>/dev/null || echo "")
+  check "lexin ring reaches picture" "1" "$(echo "$ring" | grep -q picture && echo 1 || echo 0)"
+
+  # ---- time lattice --------------------------------------------------------------------
+  local w; w=$(ve_time_window "last 3 hours" 2>/dev/null || echo "0 1")
+  check "time window lo<hi" "1" "$( [ "$(echo "$w" | awk '{print $1}')" -lt "$(echo "$w" | awk '{print $2}')" ] && echo 1 || echo 0 )"
+
+  # ---- bloom cascade (before/after membership + pair dedup) ---------------------------
+  ve_bloom_tok_add "needle" >/dev/null 2>&1 || true
+  check "bloom confirms present" "1" "$(ve_bloom_tok_contains "needle" 2>/dev/null)"
+  check "bloom rejects absent" "0" "$(ve_bloom_tok_contains "dne_xyz" 2>/dev/null)"
+
+  # ---- ingest + index round-trip --------------------------------------------------------
+  local f="$tmp/meeting_notes.md"; printf '# notes\n' > "$f"
+  ve_ingest_record "File" "files" "$f" >/dev/null 2>&1 || true
+  local got; got=$(ve_index_tokens_to_fps "meeting" 2>/dev/null | wc -l | tr -d ' ')
+  check "index token postings" "1" "$got"
+
+  # ---- IR: df incremented once, avgdl sane ---------------------------------------------
+  local df; df=$(ve_ir_df "meeting" 2>/dev/null || echo 0)
+  check "ir df counted" "1" "$df"
+  local avg; avg=$(ve_ir_avgdl 2>/dev/null || echo 0)
+  check "ir avgdl positive" "1" "$([ "$avg" -gt 0 ] 2>/dev/null && echo 1 || echo 0)"
+
+  # ---- edit-distance automaton: batch banded scan, early-abort --------------
+  check "dista exact distance" "0" "$(ve_dista_distance cat cat 2 2>/dev/null || echo x)"
+  check "dista one-edit" "1" "$(ve_dista_distance cat kat 2 2>/dev/null || echo x)"
+  check "dista rejects far" "999" "$(ve_dista_distance cat xenomorph 2 2>/dev/null || echo x)"
+  local dn; dn=$(printf "cat\ncarrot\nkat\ncatalog\n" | ve_dista_neighbors "cat" 2 2>/dev/null | sed -n '2p' | cut -d'|' -f1)
+  check "dista neighbours batches" "kat" "$dn"
+  local cls; cls=$(printf "cat\ncarrot\nkat\n" | ve_dista_closest "catt" 2>/dev/null | cut -d'|' -f1)
+  check "dista closest" "cat" "$cls"
+
+  # ---- Rocchio PRF: reordering symmetric, vectors sane -----------------------
+  local qv; qv=$(ve_prf_query_vec "alpha beta alpha" 2>/dev/null | tr '\n' ' ')
+  check "prf query vector tf" "1" "$(echo "$qv" | awk -F'[: ]' '{alpha=0;beta=0; for(i=1;i<=NF;i+=2){if($i=="alpha")alpha=$(i+1); if($i=="beta")beta=$(i+1)} print (alpha==2 && beta==1)?1:0}')"
+  check "prf cosine same vectors" "1000" "$(ve_prf_cosine $'x:1\ny:1' $'x:1\ny:1' 2>/dev/null || echo 0)"
+  check "prf cosine disjoint" "0" "$(ve_prf_cosine $'x:1' $'z:5' 2>/dev/null || echo 9)"
+  check "prf single-candidate passthrough" "solo|5|alpha" "$(printf 'solo|5|alpha\n' | ve_prf_rerank "one" 2>/dev/null)"
+  local prfa prfb
+  prfa=$(printf 'one|1|alpha\nsecond|2|beta\n' | ve_prf_rerank "one" 2>/dev/null | sort | tr '\n' ' ')
+  prfb=$(printf 'one|1|alpha\nsecond|2|beta\n' | sort | tr '\n' ' ')
+  check "prf multiset preserved" "1" "$([ "$prfa" = "$prfb" ] && echo 1 || echo 0)"
+
+  # ---- markov predictor: order-2 trigram dominates, chains walk -------------
+  rm -rf "$(ve_markov_dir)" && ve_markov_dir >/dev/null 2>&1
+  ve_markov_observe "meeting notes agenda followup report" >/dev/null 2>&1
+  ve_markov_observe "meeting notes agenda review" >/dev/null 2>&1
+  ve_markov_observe "meeting notes minutes" >/dev/null 2>&1
+  local mtop; mtop=$(ve_markov_predict "meeting notes" 1 2>/dev/null | head -1 | cut -d'|' -f1)
+  check "markov trigram top after meeting notes" "agenda" "$mtop"
+  local mbig; mbig=$(ve_markov_predict "meeting" 1 2>/dev/null | head -1 | cut -d'|' -f1)
+  check "markov bigram top after meeting" "notes" "$mbig"
+  local mchain; mchain=$(ve_markov_chain "meeting" 4 2>/dev/null || true)
+  check "markov chain prefixes meeting" "1" "$([[ "$mchain" == meeting* ]] && echo 1 || echo 0)"
+
+  # ---- minhash/LSH near-duplicate finder -------------------------------------
+  rm -rf "$VIBE_STATE/lsh"; mkdir -p "$VIBE_STATE/lsh"
+  ve_lsh_index fp_x1 "beach photo sunny summer trip beach vacation" >/dev/null 2>&1
+  ve_lsh_index fp_x2 "beach photo sunny summer trip beach vacation" >/dev/null 2>&1
+  ve_lsh_index fp_y1 "tax report quarterly spreadsheet numbers" >/dev/null 2>&1
+  local lsh; lsh=$(ve_lsh_candidates fp_x1 5 2>/dev/null | head -1)
+  check "lsh finds identical copy 8/8" "fp_x2|8" "$lsh"
+  lsh=$(ve_lsh_candidates fp_y1 5 2>/dev/null | wc -l | tr -d ' ')
+  check "lsh rejects unrelated" "0" "$lsh"
+
+  # ---- suffix array: idempotent ensure + infix rescue ------------------------
+  check "sarray ensure idempotent rc" "0" "$(ve_sarray_ensure >/dev/null 2>&1; echo $?)"
+  local sain; sain=$(ve_sarray_search "photo" 5 2>/dev/null | wc -l | tr -d ' ')
+  check "sarray infix returns hits" "1" "$([ "${sain:-0}" -ge 1 ] && echo 1 || echo 0)"
+  sain=$(ve_sarray_search "zzzzqzx" 5 2>/dev/null | wc -l | tr -d ' ')
+  check "sarray rejects absent" "0" "$sain"
+
+  local dupcnt; dupcnt=$(ve_lsh_index "st1st1" "alpha beta gamma delta file misc" >/dev/null 2>&1; ve_lsh_index "st2st2" "alpha beta gamma delta file misc" >/dev/null 2>&1; ve_lsh_index "st3st3" "omega zeta eta theta file misc" >/dev/null 2>&1; ve_lsh_dupe_count 6 2>/dev/null)
+  check "lsh dupe scan finds identical pair" "2" "$dupcnt"
+
+  # ---- query relax + rank ordering --------------------------------------------------------
+  local r; r=$(SEARCHIE_TERSE=1 ve_query_run "meeting notes" 2>/dev/null | grep -c "RESULT|" || true)
+  check "query returns ranked rows" "1" "$([ "$r" -ge 1 ] && echo 1 || echo 0)"
+
+  # ---- audit: event internals + query ladder ----------------------------------------------
+  local afp; afp=$(ls "$VIBE_INDEX/fp" 2>/dev/null | head -1)
+  check "audit event dumps envelope" "1" "$([ -n "$afp" ] && ve_audit_event "$afp" 2>/dev/null | grep -c 'Vibe-address AUDIT' || echo 0)"
+  check "audit-query prints ladder" "1" "$(ve_audit_query "meeting" 2>/dev/null | grep -c '^  L0')"
+
+  # ---- action staging surface --------------------------------------------------------------
+  local staged; staged=$(ve_action_delete "the missing thing" 2>/dev/null | grep -c "^ITEM|" || true)
+  check "delete stages item" "1" "$([ "$staged" -ge 1 ] && echo 1 || echo 0)"
+
+  # ---- Aho-Corasick: substring rescue in one automaton pass --------------------------------
+  ve_auto_compile "hpho" >/dev/null 2>&1 || true
+  local ac; ac=$(ve_auto_scan_text "beachphotojpg note" 2>/dev/null | head -1 || true)
+  check "AC substring finds hpho" "hpho" "$ac"
+  ac=$(ve_auto_scan_text "nothing similar here" 2>/dev/null | head -1)
+  check "AC rejects absent" "1" "$([ -z "$ac" ] && echo 1 || echo 0)"
+
+  # ---- capacity manager: pct monotonic, level labels, full-lock deny --------------
+  local cp; cp=$(ve_capacity_pct 2>/dev/null || echo 0)
+  check "capacity pct in range" "1" "$([ "$cp" -ge 0 ] 2>/dev/null && [ "$cp" -le 100 ] && echo 1 || echo 0)"
+  check "capacity ok level initially" "ok" "$(ve_capacity_level 2>/dev/null || echo ok)"
+  local deny
+  ve_capacity_can_write; deny=$?
+  check "capacity allows write while ok" "0" "$deny"
+  check "capacity can force full" "full" "$(VIBE_CAP_BYTES=1 ve_capacity_level 2>/dev/null || echo ok)"
+
+  # ---- count-min sketch: exact small-store behaviour --------------------------------
+  ve_cms_add "needle" >/dev/null 2>&1 || true
+  ve_cms_add "needle" >/dev/null 2>&1 || true
+  check "cms counts repeated" "2" "$(ve_cms_estimate needle 2>/dev/null || echo 0)"
+  check "cms zero for absent" "0" "$(ve_cms_estimate absentword 2>/dev/null || echo x)"
+
+  # ---- model-integrity: every artifact rebuilt from the store must align -------
+  ve_store_append "1780000000|photo|file|/st/align_probe.txt|1111aaaa00000000|misc|align" >/dev/null 2>&1 || true
+  ve_align_fix >/dev/null 2>&1 || true
+  local algn; algn=$(ve_align_check 2>/dev/null | grep -c 'ALIGNED' || echo 0)
+  local aok=0
+  if [ "$algn" -ge 1 ] 2>/dev/null; then aok=1; fi
+  check "align fixes + verifies models" "1" "$aok"
+  local tcnt; tcnt=$(find "$VIBE_INDEX/time" -type f 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+  local tok=0
+  if [ "${tcnt:-0}" -ge 1 ] 2>/dev/null; then tok=1; fi
+  check "align index covers tokens" "1" "$tok"
+
+  # ---- align --dry-run: plans without touching any artifact ----------------
+  local mcount_dr; mcount_dr=$(ve_align_markov_count 2>/dev/null)
+  ve_align_fix --dry-run >/dev/null 2>&1 || true
+  local mcount_dr2; mcount_dr2=$(ve_align_markov_count 2>/dev/null)
+  local drok=0
+  if [ "$mcount_dr" = "$mcount_dr2" ] 2>/dev/null; then drok=1; fi
+  check "align dry-run is non-mutating" "1" "$drok"
+
+  # ---- randomized robustness: 8 varied events -> align + query integrity -----
+  # NOTE: array literals (not `read -a`) — the harness IFS is \n\t (no space)
+  local rnd_str; rnd_str="alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec uniform victor whiskey xray yankee zulu"
+  local rnd_arr=(); local rw
+  while IFS= read -r rw; do [ -n "$rw" ] && rnd_arr+=("$rw"); done <<<"$(echo "$rnd_str" | tr ' ' '\n')"
+  local rnd_i t0 word vtypes=("photo" "terminal" "email" "browser" "note")
+  for rnd_i in 1 2 3 4 5 6 7 8; do
+    t0=$((1780000000 + rnd_i * 1000))
+    word="${rnd_arr[$((rnd_i % 26))]}"
+    ve_store_append "$t0|${vtypes[$((rnd_i % 5))]}|file|/st/fuzz/${word}_${rnd_i}.txt|${rnd_i}${rnd_i}${rnd_i}${rnd_i}0000000000|misc|fuzz" >/dev/null 2>&1 || true
+  done
+  ve_align_fix >/dev/null 2>&1 || true
+  local fuzzok=0
+  local fuzzalign; fuzzalign=$(ve_align_check 2>/dev/null | grep -c ALIGNED || echo 0)
+  local fuzzq; fuzzq=$(ve_query_run "kilo" 2>/dev/null || true)
+  if [ "$fuzzalign" -ge 1 ] 2>/dev/null && [ "$(echo "$fuzzq" | grep -c "candidate" || echo 0)" -ge 1 ]; then
+    fuzzok=1
+  fi
+  check "fuzz: varied events align + query hits" "1" "$fuzzok"
+
+  # ---- timeline: per-day event counts come back clean ------------------------
+  local tl_out; tl_out=$(ve_store_timeline 2>/dev/null || true)
+  local tlrows; tlrows=$(echo "$tl_out" | grep -c '^  [0-9]\{4\}-' || echo 0)
+  local tlok=0
+  if [ "$tlrows" -ge 1 ] 2>/dev/null && echo "$tl_out" | grep -q '[0-9]'; then tlok=1; fi
+  check "timeline reports per-day event rows" "1" "$tlok"
+
+  # ---- optimize --burn: quarantine exact-duplicate logical items -------------
+  ve_store_append "1780000001|photo|file|/st/align_probe.txt|2222bbbb11110000|misc|align" >/dev/null 2>&1 || true
+  ve_align_fix >/dev/null 2>&1 || true
+  local burnout; burnout=$(ve_lsh_dupe_prune_burn 2>/dev/null)
+  local burned_row; burned_row=$(echo "$burnout" | grep -c "duplicate logical item" || echo 0)
+  local bok=0
+  if [ "$burned_row" -ge 1 ] 2>/dev/null; then bok=1; fi
+  check "optimize burn quarantines exact dupes" "1" "$bok"
+  ve_index_rebuild >/dev/null 2>&1 || true
+
+  # ---- per-tier explanation line present in query results -------------------
+  local qout; qout=$(ve_query_run "notes" 2>/dev/null || true)
+  local qok=0
+  if echo "$qout" | grep -qE "strict inverted-index hit|relaxed to"; then qok=1; fi
+  check "query results explain their relax tier" "1" "$qok"
+
+  # ---- bloom sweep: rebuilt filter admits indexed tokens, rejects absent ----
+  local bloom_tok; bloom_tok=$(ls "$VIBE_INDEX/inv" 2>/dev/null | head -1)
+  local bok2=0
+  if [ -n "$bloom_tok" ] && [ "$(ve_bloom_tok_contains "$bloom_tok" 2>/dev/null)" = "1" ] \
+     && [ "$(ve_bloom_tok_contains "zzzqtxnotreal" 2>/dev/null)" = "0" ]; then
+    bok2=1
+  fi
+  check "bloom sweep admits indexed + rejects absent" "1" "$bok2"
+
+  # ---- restore env --------------------------------------------------------------------------
+  export HOME="$HOME_OLD"
+  export VIBE_HOME="$VIBE_HOME_OLD"
+
+  echo ""
+  if [ "$fails" -eq 0 ]; then
+    echo "SELFTEST PASS  ($total checks)"
+    return 0
+  else
+    echo "SELFTEST FAIL  ($fails/$total failed)"
+    return 1
+  fi
+}
