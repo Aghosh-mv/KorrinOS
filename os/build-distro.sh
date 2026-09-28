@@ -63,10 +63,60 @@ SRC"
   "$SUDO" mount --bind /dev   "$ROOTFS/dev"   2>/dev/null || true
   mountpoint -q "$ROOTFS/dev/pts" || "$SUDO" mount -t devpts none "$ROOTFS/dev/pts" 2>/dev/null || true
 
+# The install helper lives in its own file, written with a QUOTED heredoc so
+# its own $variables survive verbatim. The apt-setup heredoc below is
+# unquoted (it intentionally expands $WORLDS and $(...)), so a function defined
+# inline there would be mangled at generation time.
+cat > "$BUILD/kapt-lib.sh" <<'KAPTEOF'
+#!/bin/bash
+# kapt: resilient package install.
+#
+# A single unavailable package name used to abort the entire apt-get install
+# for its group, silently dropping every other package in that group. In one
+# KorrinOS run that cost picom, dunst, alsa-utils, wireplumber, libreoffice,
+# gimp, inkscape, audacity, gparted and sysstat. kapt filters the list first,
+# so a bad name costs only itself and is recorded rather than hidden.
+KAPT_SKIPPED_FILE="${KAPT_SKIPPED_FILE:-/var/lib/korrinos/skipped-packages.txt}"
+
+kapt() {
+  local label="$1"; shift
+  local -a want=() ok=() p
+  for p in "$@"; do
+    [ -z "$p" ] && continue
+    want+=("$p")
+    if apt-cache show "$p" >/dev/null 2>&1; then
+      ok+=("$p")
+    else
+      echo "$p" >> "$KAPT_SKIPPED_FILE"
+    fi
+  done
+  if [ ${#ok[@]} -eq 0 ]; then
+    echo "  [$label] nothing installable (all ${#want[@]} unavailable)"
+    return 0
+  fi
+  local missing=$(( ${#want[@]} - ${#ok[@]} ))
+  if [ "$missing" -gt 0 ]; then
+    echo "  [$label] installing ${#ok[@]}, skipping $missing unavailable"
+  else
+    echo "  [$label] installing ${#ok[@]}"
+  fi
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${ok[@]}" \
+    >/tmp/kapt-$$.log 2>&1 || {
+      echo "  [$label] WARNING: apt returned non-zero; last lines:"
+      tail -4 /tmp/kapt-$$.log | sed 's/^/      /'
+      rm -f /tmp/kapt-$$.log
+      return 0
+    }
+  rm -f /tmp/kapt-$$.log
+  return 0
+}
+KAPTEOF
+
 cat > "$BUILD/apt.sh" <<EOF
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
+. /usr/local/lib/korrinos/kapt-lib.sh
 WORLDS="$WORLDS"
 apt-get update -y
 
@@ -79,264 +129,110 @@ apt-get update -y
 # Our KorrinOS kernel (Linux v7.2-rc6 + Tinker) is built on the host and
 # dropped into the rootfs in stage3. apt charset only provides boot/firmware.
 echo ">>> Installing kernel and boot system..."
-apt-get install -y initramfs-tools initramfs-tools-core initramfs-tools-bin \
-  casper live-boot live-config \
-  grub-efi-amd64-bin shim-signed mokutil \
-  || echo "kernel/boot had issues"
+kapt "kernel/boot" initramfs-tools initramfs-tools-core initramfs-tools-bin casper live-boot live-config grub-efi-amd64-bin shim-signed mokutil
 # Note: grub-pc removed — conflicts with grub-efi in chroot
 
 # ---- FULL XFCE DESKTOP (with recommends) ----
 echo ">>> Installing XFCE4 desktop..."
-apt-get install -y xfce4 xfce4-goodies xfce4-terminal xfce4-panel \
-  xfce4-session xfce4-settings xfce4-power-manager \
-  lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings \
-  xorg xserver-xorg xserver-xorg-input-all xserver-xorg-video-all \
-  xserver-xorg-input-libinput xserver-xorg-input-synaptics \
-  x11-xserver-utils x11-utils x11-apps xdg-utils xdg-desktop-portal \
-  || echo "desktop had issues"
+kapt "desktop" xfce4 xfce4-goodies xfce4-terminal xfce4-panel xfce4-session xfce4-settings xfce4-power-manager lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings xorg xserver-xorg xserver-xorg-input-all xserver-xorg-video-all xserver-xorg-input-libinput xserver-xorg-input-synaptics x11-xserver-utils x11-utils x11-apps xdg-utils xdg-desktop-portal
 
 # ---- DISPLAY MANAGER + COMPOSITOR ----
 echo ">>> Installing compositor and display tools..."
-apt-get install -y picom dunst xfwm4 \
-  arandr autorandr xrandr xprop xdotool xclip xsel \
-  nitrogen feh imwheel \
-  || echo "compositor had issues"
+kapt "compositor" picom dunst xfwm4 arandr autorandr xdotool xclip xsel nitrogen feh imwheel
 
 # ---- AUDIO STACK ----
 echo ">>> Installing audio system..."
-apt-get install -y pulseaudio pulseaudio-utils pulseaudio-module-bluetooth \
-  pavucontrol pavumeter alsa-utils alsa-tools alsa-firmware \
-  pipewire pipewire-pulse wireplumber \
-  volumeicon sound-theme-freedesktop \
-  audacity audacious lmms \
-  || echo "audio had issues"
+kapt "audio" pulseaudio pulseaudio-utils pulseaudio-module-bluetooth pavucontrol pavumeter alsa-utils alsa-tools pipewire pipewire-pulse wireplumber sound-theme-freedesktop audacity audacious lmms
 
 # ---- NETWORKING ----
 echo ">>> Installing networking..."
-apt-get install -y network-manager network-manager-gnome \
-  net-tools wireless-tools iw wpasupplicant \
-  openssh-client openssh-server ssh \
-  curl wget aria2 axel \
-  smbclient samba-common-bin \
-  dnsutils traceroute nmap \
-  openvpn wireguard-tools \
-  bluetooth bluez bluez-tools blueman \
-  || echo "networking had issues"
+kapt "networking" network-manager network-manager-gnome net-tools wireless-tools iw wpasupplicant openssh-client openssh-server ssh curl wget aria2 axel smbclient samba-common-bin dnsutils traceroute nmap openvpn wireguard-tools bluetooth bluez bluez-tools blueman
 
 # ---- FILE MANAGER + FILES ----
 echo ">>> Installing file managers..."
-apt-get install -y thunar thunar-archive-plugin thunar-volman \
-  nemo nautilus pcmanfm \
-  mousepad leafpad xfburn \
-  file-roller engrampa \
-  gvfs gvfs-backends gvfs-fuse \
-  udisks2 udiskie \
-  || echo "file managers had issues"
+kapt "file managers" thunar thunar-archive-plugin thunar-volman nemo nautilus pcmanfm mousepad xfburn file-roller engrampa gvfs gvfs-backends gvfs-fuse udisks2 udiskie
 
 # ---- WEB BROWSERS ----
 echo ">>> Installing browsers..."
-apt-get install -y firefox \
-  || echo "browsers had issues"
+kapt "browsers" firefox
 
 # ---- OFFICE SUITE ----
 echo ">>> Installing LibreOffice full..."
-apt-get install -y libreoffice libreoffice-l10n-en-us libreoffice-help-en-us \
-  libreoffice-writer libreoffice-calc libreoffice-impress \
-  libreoffice-draw libreoffice-base libreoffice-math \
-  libreoffice-style-adwaita libreoffice-style-colibre \
-  libreoffice-gtk3 libreoffice-pdfimport \
-  || echo "libreoffice had issues"
+kapt "libreoffice" libreoffice libreoffice-l10n-en-us libreoffice-help-en-us libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw libreoffice-base libreoffice-math libreoffice-style-colibre libreoffice-gtk3 libreoffice-pdfimport
 
 # ---- CREATIVE SUITE ----
 echo ">>> Installing creative tools..."
-apt-get install -y gimp gimp-data gimp-plugin-fig \
-  inkscape darktable rawtherapee \
-  blender \
-  krita \
-  obs-studio \
-  shotwell shotwell-common \
-  eog eog-plugins \
-  rhythmbox celluloid mpv \
-  imagemagick imagemagick-6.q16 \
-  || echo "creative had issues"
+kapt "creative" gimp gimp-data inkscape darktable rawtherapee blender krita obs-studio shotwell shotwell-common eog eog-plugins rhythmbox celluloid mpv imagemagick imagemagick-6.q16
 
 # ---- DEVELOPMENT TOOLS ----
 echo ">>> Installing development tools..."
-apt-get install -y build-essential gcc g++ make cmake \
-  python3 python3-pip python3-venv python3-dev python3-numpy \
-  default-jdk default-jre \
-  git gitk git-gui \
-  vim vim-common nano neovim \
-  code || true \
-  nodejs npm \
-  php php-cli \
-  ruby \
-  go || true \
-  rustc cargo || true \
-  valgrind gdb strace ltrace \
-  cloc sloccount \
-  || echo "dev tools had issues"
+kapt "dev tools" build-essential gcc g++ make cmake python3 python3-pip python3-venv python3-dev python3-numpy default-jdk default-jre git gitk git-gui vim vim-common nano neovim nodejs npm php php-cli ruby go || true rustc cargo || true valgrind gdb strace ltrace cloc sloccount
 
 # ---- SYSTEM TOOLS ----
 echo ">>> Installing system tools..."
-apt-get install -y htop btop atop glances \
-  sysstat iotop iostat \
-  lsof lshw lshw-gtk \
-  hardinfo inxi neofetch \
-  gnome-disk-activity gparted \
-  synaptic aptitude dconf-editor \
-  gparted testdisk foremost scalpel \
-  rsync rdiff-backup \
-  timeshift \
-  ncdu \
-  || echo "sys tools had issues"
+kapt "sys tools" htop btop atop glances sysstat iotop lsof lshw lshw-gtk hardinfo inxi neofetch gnome-disk-utility gparted synaptic aptitude dconf-editor gparted testdisk foremost scalpel rsync rdiff-backup timeshift ncdu
 
 # ---- MULTIMEDIA CODECS ----
 echo ">>> Installing multimedia codecs..."
-apt-get install -y \
-  ubuntu-restricted-extras \
-  gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
-  gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
-  gstreamer1.0-libav gstreamer1.0-tools \
-  ffmpeg ffmpeg-doc \
-  libavcodec-extra libavformat-dev libavutil-dev \
-  lame flac libvorbis-utils \
-  || echo "codecs had issues"
+kapt "codecs" ubuntu-restricted-extras gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools ffmpeg ffmpeg-doc libavcodec-extra libavformat-dev libavutil-dev lame flac vorbis-tools
 
 # ---- FONTS ----
 echo ">>> Installing fonts..."
-apt-get install -y \
-  fonts-dejavu fonts-liberation fonts-freefont-ttf \
-  fonts-noto fonts-noto-color-emoji fonts-noto-cjk \
-  fonts-ubuntu fonts-liberation2 \
-  fonts-firacode fonts-hack \
-  fonts-croscore fonts-crosextra-carlito \
-  msttcorefonts || true \
-  || echo "fonts had issues"
+kapt "fonts" fonts-dejavu fonts-liberation fonts-freefont-ttf fonts-noto fonts-noto-color-emoji fonts-noto-cjk fonts-ubuntu fonts-liberation2 fonts-firacode fonts-hack fonts-croscore fonts-crosextra-carlito msttcorefonts || true
 
 # ---- UTILITIES ----
 echo ">>> Installing utilities..."
-apt-get install -y \
-  galculator mate-calc \
-  terminator gnome-terminal xfce4-terminal \
-  screenshot flameshot \
-  clipman parcellite \
-  keepassxc \
-  filezilla \
-  transmission-gtk \
-  || echo "utilities had issues"
+kapt "utilities" galculator mate-calc terminator gnome-terminal xfce4-terminal gnome-screenshot flameshot clipman parcellite keepassxc filezilla transmission-gtk
 
 # ---- SECURITY ----
 echo ">>> Installing security tools..."
-apt-get install -y ufw gufw apparmor apparmor-utils \
-  firejail firetools \
-  keepassxc \
-  fail2ban \
-  lynis rkhunter chkrootkit \
-  cryptsetup ecryptfs-utils \
-  || echo "security had issues"
+kapt "security" ufw gufw apparmor apparmor-utils firejail firetools keepassxc fail2ban lynis rkhunter chkrootkit cryptsetup ecryptfs-utils
 
 # ---- GAMES ----
 echo ">>> Installing games..."
 dpkg --add-architecture i386 || true
 apt-get update -y || true
-apt-get install -y \
-  steam-installer steam-devices || true \
-  lutris || true \
-  wine wine32 wine64 || true \
-  vulkan-tools mesa-vulkan-drivers mesa-utils \
-  mangohud || true \
-  0ad 0ad-data \
-  supertuxkart supertuxkart-data \
-  warzone2100 \
-  minetest minetest-server \
-  ExtremeTuxRacer \
-  freedoom \
-  foobillard++ || true \
-  || echo "games had issues"
+kapt "games" steam-installer steam-devices || true lutris || true wine wine32 wine64 || true vulkan-tools mesa-vulkan-drivers mesa-utils mangohud || true 0ad 0ad-data supertuxkart supertuxkart-data warzone2100 minetest minetest-server ExtremeTuxRacer freedoom foobillard++ || true
 
 # ---- VIRTUALIZATION ----
 echo ">>> Installing virtualization..."
-apt-get install -y \
-  qemu-kvm qemu-system-x86 qemu-utils \
-  libvirt-daemon-system libvirt-clients \
-  virt-manager virtinst \
-  bridge-utils \
-  || echo "virt had issues"
+kapt "virt" qemu-kvm qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-clients virt-manager virtinst bridge-utils
 
 # ---- CONTAINERS ----
 echo ">>> Installing containers..."
-apt-get install -y \
-  docker.io docker-compose || true \
-  podman podman-compose || true \
-  || echo "containers had issues"
+kapt "containers" docker.io docker-compose || true podman podman-compose || true
 
 # ---- DOCUMENTATION ----
 echo ">>> Installing documentation..."
-apt-get install -y \
-  man-db manpages manpages-dev manpages-posix manpages-posix-dev \
-  info \
-  debian-handbook \
-  || echo "docs had issues"
+kapt "docs" man-db manpages manpages-dev manpages-posix manpages-posix-dev info debian-handbook
 
 # ---- THEMES + ICONS ----
 echo ">>> Installing themes..."
-apt-get install -y \
-  arc-theme \
-  papirus-icon-theme \
-  numix-gtk-theme numix-icon-theme \
-  light-themes \
-  adwaita-icon-theme adwaita-qt \
-  qt5ct \
-  || echo "themes had issues"
+kapt "themes" arc-theme papirus-icon-theme numix-gtk-theme numix-icon-theme light-themes adwaita-icon-theme adwaita-qt qt5ct
 
 # ---- AI / MACHINE LEARNING ----
 echo ">>> Installing AI/ML tools..."
-apt-get install -y \
-  python3-sklearn python3-pandas python3-numpy \
-  || echo "ai/ml had issues"
+kapt "ai/ml" python3-sklearn python3-pandas python3-numpy
 
 # ---- ADDITIONAL DEVELOPMENT ----
 echo ">>> Installing additional dev tools..."
-apt-get install -y \
-  sqlitebrowser \
-  httpie \
-  || echo "additional dev had issues"
+kapt "additional dev" sqlitebrowser httpie
 
 # ---- ADDITIONAL CREATIVE ----
 echo ">>> Installing additional creative tools..."
-apt-get install -y \
-  scribus scribus-doc \
-  shotcut || true \
-  || echo "additional creative had issues"
+kapt "additional creative" scribus scribus-doc shotcut || true
 
 # ---- ADDITIONAL GAMES ----
 echo ">>> Installing additional games..."
-apt-get install -y \
-  neverball neverball-data \
-  armagetronad \
-  assaultcube \
-  openarena openarena-data \
-  || echo "additional games had issues"
+kapt "additional games" neverball neverball-data armagetronad assaultcube openarena openarena-data
 
 # ---- DOCUMENTATION ----
 echo ">>> Installing documentation..."
-apt-get install -y \
-  man-db manpages manpages-dev manpages-posix manpages-posix-dev \
-  info \
-  debian-handbook \
-  || echo "docs had issues"
+kapt "docs" man-db manpages manpages-dev manpages-posix manpages-posix-dev info debian-handbook
 
 # ---- THEMES + ICONS ----
 echo ">>> Installing themes..."
-apt-get install -y \
-  arc-theme arc-icons \
-  papirus-icon-theme \
-  numix-gtk-theme numix-icon-theme \
-  light-themes \
-  adwaita-icon-theme adwaita-qt \
-  qt5ct qt6ct \
-  || echo "themes had issues"
+kapt "themes" arc-theme arc-icon-theme papirus-icon-theme numix-gtk-theme numix-icon-theme light-themes adwaita-icon-theme adwaita-qt qt5ct
 
 # ---- FINAL CLEANUP (keep big packages, remove caches) ----
 echo ">>> Cleaning up..."
@@ -345,6 +241,10 @@ apt-get clean
 rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/apt/*.bin
 echo ">>> DONE: $(dpkg-query -W -f='\${Installed-Size}\n' | awk '{s+=$1}END{printf "%.0f MB\n", s/1024}') installed"
 EOF
+  "$SUDO" mkdir -p "$ROOTFS/usr/local/lib/korrinos" "$ROOTFS/var/lib/korrinos"
+  "$SUDO" cp "$BUILD/kapt-lib.sh" "$ROOTFS/usr/local/lib/korrinos/kapt-lib.sh"
+  "$SUDO" rm -f "$ROOTFS/var/lib/korrinos/skipped-packages.txt"
+  "$SUDO" touch "$ROOTFS/var/lib/korrinos/skipped-packages.txt"
   "$SUDO" cp "$BUILD/apt.sh" "$ROOTFS/apt-setup.sh"
   "$SUDO" chroot "$ROOTFS" bash /apt-setup.sh || echo "   apt install had warnings (continuing)"
   "$SUDO" rm -f "$ROOTFS/apt-setup.sh"
@@ -642,19 +542,19 @@ stage4_live() {
 stage_branding() {
   echo "### [branding] Writing KorrinOS distribution identity into rootfs..."
   "$SUDO" bash -c "cat > '$ROOTFS/etc/os-release' <<'EOS'
-PRETTY_NAME=\"KorrinOS 2.0 (jammy)\"
+PRETTY_NAME="KorrinOS 2.0"
 NAME=KorrinOS
-VERSION_ID=\"2.0\"
-VERSION=\"2.0 (jammy)\"
-VERSION_CODENAME=jammy
+VERSION_ID="2.0"
+VERSION="2.0"
+VERSION_CODENAME=korrinos
 ID=korrinos
-ID_LIKE=ubuntu debian
+ID_LIKE=
 HOME_URL=https://sourceforge.net/projects/korrinos/
 SUPPORT_URL=https://sourceforge.net/projects/korrinos/
 BUG_REPORT_URL=https://sourceforge.net/projects/korrinos/
 EOS"
   "$SUDO" cp "$ROOTFS/etc/os-release" "$ROOTFS/etc/lsb-release"
-  "$SUDO" bash -c "echo 'KorrinOS 2.0 (jammy) \\\\l' > '$ROOTFS/etc/issue'"
+  "$SUDO" bash -c "echo 'KorrinOS 2.0 \\\\l' > '$ROOTFS/etc/issue'"
   "$SUDO" cp "$ROOTFS/etc/issue" "$ROOTFS/etc/issue.net"
   echo "   KorrinOS identity written (os-release/lsb-release/issue)."
 }
@@ -813,16 +713,117 @@ EOF
   du -sh "$OUT"
 }
 
+# ---- stage_i18n_fonts: install the fonts the 55 languages need --------------
+# The package list is derived from the language registry rather than hardcoded,
+# so adding a language to languages.tsv automatically pulls in its font.
+# Must run inside the chroot: apt needs root, and the rootfs is the target.
+stage_i18n_fonts() {
+  echo "### [i18n] installing fonts for the shipped languages..."
+  local reg="/home/tinkerspace/linux-kernel/os/i18n/languages.tsv"
+  [ -r "$reg" ] || { echo "  WARNING: registry not found at $reg; skipping"; return 0; }
+
+  local pkgs langs
+  pkgs=$(cut -f7 "$reg" | grep -v '^#' | grep -v '^fontpkg' | grep -v '^$' | sort -u | tr '\n' ' ')
+  langs=$(cut -f1 "$reg" | grep -v '^#' | grep -v '^code' | grep -v '^$' | sort -u | wc -l)
+  echo "  $langs languages require $(printf '%s\n' $pkgs | wc -w) font packages"
+
+  # Generate a chroot-side script (quoted heredoc: no expansion wanted here).
+  "$SUDO" bash -c "cat > '$ROOTFS/i18n-fonts.sh'" <<'FONTSCRIPT'
+#!/bin/bash
+export DEBIAN_FRONTEND=noninteractive
+. /usr/local/lib/korrinos/kapt-lib.sh
+kapt "i18n fonts" FONTPKGS_PLACEHOLDER
+FONTSCRIPT
+  "$SUDO" sed -i "s/FONTPKGS_PLACEHOLDER/$pkgs/" "$ROOTFS/i18n-fonts.sh"
+  "$SUDO" chroot "$ROOTFS" bash /i18n-fonts.sh || echo "  WARNING: i18n font stage had issues"
+  "$SUDO" rm -f "$ROOTFS/i18n-fonts.sh"
+
+  # Prove the fonts are actually present, not merely requested.
+  local installed
+  installed=$("$SUDO" chroot "$ROOTFS" bash -c 'fc-list 2>/dev/null | wc -l' 2>/dev/null || echo 0)
+  echo "  rootfs now reports $installed font files"
+}
+
+# ---- stage7: verify what actually made it into the image -------------------
+# The install steps deliberately tolerate a missing package so one bad name
+# cannot abort a multi-hour build. That tolerance hid 16 missing packages in an
+# earlier run. This stage makes the result explicit instead.
+EXPECTED_PACKAGES=(
+  # desktop + display
+  xfce4 xfce4-panel xfwm4 thunar xfce4-terminal picom dunst
+  # input + clipboard + display utilities (xrandr/xprop live in these)
+  x11-xserver-utils x11-utils xdotool xclip xsel arandr
+  # audio
+  pulseaudio pavucontrol alsa-utils pipewire wireplumber
+  # networking
+  network-manager openssh-server nmap wireguard-tools
+  # apps
+  firefox libreoffice gimp inkscape audacity
+  # system
+  gparted gnome-disk-utility sysstat
+  # fonts (must cover the 55 shipped languages)
+  fonts-dejavu fonts-noto fonts-noto-cjk fonts-liberation
+  # KorrinOS additions
+  kcommand
+)
+
+stage7_verify() {
+  echo "### [7/7] Verifying image contents..."
+  local report="$BUILD/install-report.txt" missing=() p
+  : > "$report"
+
+  for p in "${EXPECTED_PACKAGES[@]}"; do
+    if "$SUDO" chroot "$ROOTFS" dpkg-query -W -f='${Status}' "$p" 2>/dev/null \
+        | grep -q 'install ok installed'; then
+      printf '  ok      %s\n' "$p" >> "$report"
+    else
+      printf '  MISSING %s\n' "$p" >> "$report"
+      missing+=("$p")
+    fi
+  done
+
+  # KorrinOS branding and the language registry must be baked in.
+  for f in /usr/share/korrinos/i18n/languages.tsv /usr/bin/kcommand; do
+    if "$SUDO" test -e "$ROOTFS$f"; then
+      printf '  ok      %s\n' "$f" >> "$report"
+    else
+      printf '  MISSING %s\n' "$f" >> "$report"
+      missing+=("$f")
+    fi
+  done
+
+  local skipfile="$ROOTFS/var/lib/korrinos/skipped-packages.txt"
+  if [ -s "$skipfile" ]; then
+    local nskipped
+    nskipped=$("$SUDO" sort -u "$skipfile" | grep -c . || true)
+    echo "  $nskipped package(s) unavailable in this suite (skipped, not fatal):"
+    "$SUDO" sort -u "$skipfile" | sed 's/^/    - /' | head -20
+  else
+    echo "  no packages were skipped."
+  fi
+
+  local total=${#EXPECTED_PACKAGES[@]}
+  echo "  checked $((total + 2)) expectations -> $report"
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "### WARNING: ${#missing[@]} expected item(s) are NOT in the image:"
+    printf '    - %s\n' "${missing[@]}"
+    echo "### (see $report)"
+  else
+    echo "  all expected packages and KorrinOS components are present."
+  fi
+  return 0
+}
+
 run() {
-  stage1 && stage2_install && stage3_worlds && stage_branding && stage2b_branding && stage4_live \
-    && stage5_squashfs && stage5_caspermaterials && stage6_iso
+  stage1 && stage2_install && stage3_worlds && stage_branding && stage2b_branding && stage_i18n_fonts && stage_kcommand && stage4_live \
+    && stage5_squashfs && stage5_caspermaterials && stage6_iso && stage7_verify
   echo "DONE: KorrinOS full distribution ISO ready."
 }
 
 rebuild() {
   test -d "$ROOTFS/etc" || { echo "no rootfs yet — run full first"; exit 1; }
-  stage2_install && stage3_worlds && stage_branding && stage2b_branding && stage4_live \
-    && stage5_squashfs && stage5_caspermaterials && stage6_iso
+  stage2_install && stage3_worlds && stage_branding && stage2b_branding && stage_i18n_fonts && stage_kcommand && stage4_live \
+    && stage5_squashfs && stage5_caspermaterials && stage6_iso && stage7_verify
   echo "DONE: KorrinOS rebuild (kept base rootfs)."
 }
 

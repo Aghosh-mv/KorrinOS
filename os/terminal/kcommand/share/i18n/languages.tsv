@@ -1,0 +1,76 @@
+# KorrinOS language registry — the 55 shipped UI locales.
+# Canonical list. Consumed by:
+#   - os/i18n/i18n-lib.sh        (shell: locale generation, validation, selection)
+#   - os/i18n/languages.py       (Control Center / Settings language list)
+#   - ISO build (packages.conf)  (locale + font package resolution)
+#
+# Fields (tab-separated):
+#   code     language code, used to pick the translation catalogue (msgid domain)
+#   locale   FULL locale, used for LANG/LC_ALL. Carries date, number, currency
+#            and collation rules, so it is deliberately separate from `code`.
+#   endonym  name of the language in that language
+#   english  English name
+#   dir      text direction: ltr | rtl
+#   script   script family, drives terminal font + shaping selection
+#   fontpkg  distro font package required for legible rendering in this locale
+#   status   shipped | partial | planned
+#
+# Every dir=rtl row must be handled specially by the terminal + UI layers
+# (bidi reordering, mirroring, RTL cursor movement).
+#
+code	locale	endonym	english	dir	script	fontpkg	status
+en	en_US.UTF-8	English	English	ltr	latin	fonts-dejavu-core	shipped
+es	es_ES.UTF-8	Español	Spanish	ltr	latin	fonts-dejavu-core	shipped
+fr	fr_FR.UTF-8	Français	French	ltr	latin	fonts-dejavu-core	shipped
+de	de_DE.UTF-8	Deutsch	German	ltr	latin	fonts-dejavu-core	shipped
+pt-BR	pt_BR.UTF-8	Português (Brasil)	Brazilian Portuguese	ltr	latin	fonts-dejavu-core	shipped
+it	it_IT.UTF-8	Italiano	Italian	ltr	latin	fonts-dejavu-core	shipped
+nl	nl_NL.UTF-8	Nederlands	Dutch	ltr	latin	fonts-dejavu-core	shipped
+sv	sv_SE.UTF-8	Svenska	Swedish	ltr	latin	fonts-dejavu-core	shipped
+da	da_DK.UTF-8	Dansk	Danish	ltr	latin	fonts-dejavu-core	shipped
+nb	nb_NO.UTF-8	Norsk	Norwegian	ltr	latin	fonts-dejavu-core	shipped
+fi	fi_FI.UTF-8	Suomi	Finnish	ltr	latin	fonts-dejavu-core	shipped
+pl	pl_PL.UTF-8	Polski	Polish	ltr	latin	fonts-dejavu-core	shipped
+cs	cs_CZ.UTF-8	Čeština	Czech	ltr	latin	fonts-dejavu-core	shipped
+sk	sk_SK.UTF-8	Slovenčina	Slovak	ltr	latin	fonts-dejavu-core	shipped
+hu	hu_HU.UTF-8	Magyar	Hungarian	ltr	latin	fonts-dejavu-core	shipped
+ro	ro_RO.UTF-8	Română	Romanian	ltr	latin	fonts-dejavu-core	shipped
+bg	bg_BG.UTF-8	Български	Bulgarian	ltr	cyrillic	fonts-dejavu-core	shipped
+hr	hr_HR.UTF-8	Hrvatski	Croatian	ltr	latin	fonts-dejavu-core	shipped
+sr	sr_RS.UTF-8	Српски	Serbian	ltr	cyrillic	fonts-dejavu-core	shipped
+sl	sl_SI.UTF-8	Slovenščina	Slovenian	ltr	latin	fonts-dejavu-core	shipped
+el	el_GR.UTF-8	Ελληνικά	Greek	ltr	greek	fonts-dejavu-core	shipped
+tr	tr_TR.UTF-8	Türkçe	Turkish	ltr	latin	fonts-dejavu-core	shipped
+ru	ru_RU.UTF-8	Русский	Russian	ltr	cyrillic	fonts-dejavu-core	shipped
+uk	uk_UA.UTF-8	Українська	Ukrainian	ltr	cyrillic	fonts-dejavu-core	shipped
+be	be_BY.UTF-8	Беларуская	Belarusian	ltr	cyrillic	fonts-dejavu-core	shipped
+et	et_EE.UTF-8	Eesti	Estonian	ltr	latin	fonts-dejavu-core	shipped
+lv	lv_LV.UTF-8	Latviešu	Latvian	ltr	latin	fonts-dejavu-core	shipped
+lt	lt_LT.UTF-8	Lietuvių	Lithuanian	ltr	latin	fonts-dejavu-core	shipped
+ar	ar_EG.UTF-8	العربية	Arabic	rtl	arabic	fonts-kacst	shipped
+he	he_IL.UTF-8	עברית	Hebrew	rtl	hebrew	fonts-sil-scheherazade	shipped
+fa	fa_IR.UTF-8	فارسی	Persian	rtl	arabic	fonts-kacst	shipped
+ur	ur_PK.UTF-8	اردو	Urdu	rtl	arabic	fonts-kacst	shipped
+hi	hi_IN.UTF-8	हिन्दी	Hindi	ltr	deva	fonts-deva	shipped
+bn	bn_BD.UTF-8	বাংলা	Bengali	ltr	beng	fonts-lohit-beng-bengali	shipped
+ta	ta_IN.UTF-8	தமிழ்	Tamil	ltr	taml	fonts-lohit-taml	shipped
+te	te_IN.UTF-8	తెలుగు	Telugu	ltr	telu	fonts-lohit-telu	shipped
+mr	mr_IN.UTF-8	मराठी	Marathi	ltr	deva	fonts-deva	shipped
+gu	gu_IN.UTF-8	ગુજરાતી	Gujarati	ltr	gujr	fonts-lohit-gujr	shipped
+kn	kn_IN.UTF-8	ಕನ್ನಡ	Kannada	ltr	knda	fonts-lohit-knda	shipped
+ml	ml_IN.UTF-8	മലയാളം	Malayalam	ltr	mlym	fonts-lohit-mlym	shipped
+pa	pa_IN.UTF-8	ਪੰਜਾਬੀ	Punjabi	ltr	guru	fonts-lohit-guru	shipped
+ne	ne_NP.UTF-8	नेपाली	Nepali	ltr	deva	fonts-deva	shipped
+si	si_LK.UTF-8	සිංහල	Sinhala	ltr	sinh	fonts-noto-core	shipped
+th	th_TH.UTF-8	ไทย	Thai	ltr	thai	fonts-tlwg-loma	shipped
+lo	lo_LA.UTF-8	ລາວ	Lao	ltr	lao	fonts-tlwg-loma	shipped
+vi	vi_VN.UTF-8	Tiếng Việt	Vietnamese	ltr	latin	fonts-dejavu-core	shipped
+id	id_ID.UTF-8	Bahasa Indonesia	Indonesian	ltr	latin	fonts-dejavu-core	shipped
+ms	ms_MY.UTF-8	Bahasa Melayu	Malay	ltr	latin	fonts-dejavu-core	shipped
+sw	sw_KE.UTF-8	Kiswahili	Swahili	ltr	latin	fonts-dejavu-core	shipped
+am	am_ET.UTF-8	አማርኛ	Amharic	ltr	ethi	fonts-noto-core	shipped
+my	my_MM.UTF-8	မြန်မာ	Burmese	ltr	mymr	fonts-noto-core	shipped
+zh-CN	zh_CN.UTF-8	简体中文	Chinese (Simplified)	ltr	hans	fonts-noto-cjk	shipped
+zh-TW	zh_TW.UTF-8	繁體中文	Chinese (Traditional)	ltr	hant	fonts-noto-cjk	shipped
+ja	ja_JP.UTF-8	日本語	Japanese	ltr	jpan	fonts-noto-cjk	shipped
+ko	ko_KR.UTF-8	한국어	Korean	ltr	kore	fonts-noto-cjk	shipped

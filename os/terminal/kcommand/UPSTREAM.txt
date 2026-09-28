@@ -1,0 +1,1 @@
+alacritty_terminal_v0.25.1 (alacritty 0.16.0), Apache-2.0
