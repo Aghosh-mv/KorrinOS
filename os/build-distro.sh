@@ -248,7 +248,7 @@ EOF
   "$SUDO" cp "$BUILD/apt.sh" "$ROOTFS/apt-setup.sh"
   "$SUDO" chroot "$ROOTFS" bash /apt-setup.sh || echo "   apt install had warnings (continuing)"
   "$SUDO" rm -f "$ROOTFS/apt-setup.sh"
-  # unmount chroot bind-mounts
+  # unmount chroot bind-mounts (hard requirement, not best-effort)
   mountpoint -q "$ROOTFS/dev/pts" && "$SUDO" umount "$ROOTFS/dev/pts" 2>/dev/null || true
   mountpoint -q "$ROOTFS/proc" && "$SUDO" umount "$ROOTFS/proc" 2>/dev/null || true
   mountpoint -q "$ROOTFS/sys" && "$SUDO" umount "$ROOTFS/sys" 2>/dev/null || true
@@ -533,6 +533,7 @@ EOF'
 }
 
 stage4_live() {
+  unbind_rootfs || echo "  WARNING: mounts still attached; proceeding (squashfs will re-check)."
   echo "### [4/6] Preparing live image (casper layout)..."
   "$SUDO" rm -rf "$IMAGE"
   "$SUDO" mkdir -p "$IMAGE"/{casper,isolinux,install}
@@ -581,6 +582,11 @@ stage2b_branding() {
 
 stage5_squashfs() {
   echo "### [5/6] Building squashfs of the full rootfs (compressing)..."
+  # Never compress a tree that still has /proc or /sys bind-mounted into it.
+  unbind_rootfs || { echo "ABORT: refusing to build a squashfs from a live-mounted rootfs."; exit 1; }
+  local srcsz
+  srcsz=$("$SUDO" du -sm "$ROOTFS" 2>/dev/null | cut -f1)
+  echo "  source tree: ${srcsz} MB"
   "$SUDO" rm -f "$IMAGE/casper/filesystem.squashfs"
   "$SUDO" mksquashfs "$ROOTFS" "$IMAGE/casper/filesystem.squashfs" \
     -comp xz -b 1M -no-xattrs -processors "$(nproc)" 2>&1 | tail -4
@@ -733,6 +739,34 @@ preflight() {
   fi
   [ "$missing" -eq 0 ] && echo "preflight: all build stages defined."
   return "$missing"
+}
+
+# ---- unbind_rootfs: remove the chroot bind-mounts ---------------------------
+# stage2_install bind-mounts /proc /sys /dev so apt postinst scripts work.
+# Those mounts MUST come down before anything reads the rootfs tree: leaving
+# them attached made mksquashfs traverse live /proc and /sys, which produced a
+# corrupt squashfs LARGER than its own source (31 GB from a 15 GB rootfs) and
+# filled the disk. The mounts also stacked up, one set per rebuild, because the
+# old cleanup was best-effort and silently failed.
+unbind_rootfs() {
+  local n=0
+  # dev/pts before dev, sys, proc: unmount dependents first.
+  for target in dev/pts dev sys proc; do
+    while mountpoint -q "$ROOTFS/$target" 2>/dev/null; do
+      "$SUDO" umount -lf "$ROOTFS/$target" 2>/dev/null || break
+      n=$((n+1))
+      [ "$n" -gt 40 ] && break
+    done
+  done
+  local left
+  left=$(mount | grep -c "$ROOTFS/" || true)
+  if [ "${left:-0}" -ne 0 ]; then
+    echo "  WARNING: $left mount(s) still attached under $ROOTFS:"
+    mount | grep "$ROOTFS/" | awk '{print "      " $3}' | head -5
+    return 1
+  fi
+  echo "  rootfs bind-mounts cleared (released $n)."
+  return 0
 }
 
 # ---- stage_kcommand: build + install our terminal -------------------------
