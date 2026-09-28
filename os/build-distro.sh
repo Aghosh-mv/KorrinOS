@@ -879,8 +879,9 @@ EXPECTED_PACKAGES=(
   gparted gnome-disk-utility sysstat
   # fonts (must cover the 55 shipped languages)
   fonts-dejavu fonts-noto fonts-noto-cjk fonts-liberation
-  # KorrinOS additions
-  kcommand
+  # NOTE: kcommand is NOT listed here. It is not a dpkg package, so
+  # dpkg-query always reports it missing. It is verified by path instead,
+  # in the file check below.
 )
 
 stage7_verify() {
