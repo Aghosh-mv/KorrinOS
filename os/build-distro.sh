@@ -713,6 +713,85 @@ EOF
   du -sh "$OUT"
 }
 
+# ---- preflight --------------------------------------------------------------
+# A stage that is called but not defined returns 127 and truncates the && chain,
+# which once produced a "DONE" message with no ISO built. Catch that before
+# spending an hour: verify every stage in the chain actually exists.
+preflight() {
+  local missing=0 f
+  for f in stage1 stage2_install stage3_worlds stage_branding stage2b_branding \
+           stage_i18n_fonts stage_kcommand stage4_live stage5_squashfs \
+           stage5_caspermaterials stage6_iso stage7_verify; do
+    if ! declare -f "$f" >/dev/null 2>&1; then
+      echo "PREFLIGHT FAIL: stage function '$f' is called but not defined."
+      missing=1
+    fi
+  done
+  if ! declare -f kapt >/dev/null 2>&1 && [ ! -r "$BUILD/kapt-lib.sh" ]; then
+    echo "PREFLIGHT FAIL: neither kapt() nor $BUILD/kapt-lib.sh is available."
+    missing=1
+  fi
+  [ "$missing" -eq 0 ] && echo "preflight: all build stages defined."
+  return "$missing"
+}
+
+# ---- stage_kcommand: build + install our terminal -------------------------
+# kcommand is a separate Apache-2.0 project that KorrinOS consumes. We build it
+# from the pinned source rather than shipping a prebuilt binary, so the image is
+# reproducible and nothing is trusted that we did not compile. Host and the
+# jammy rootfs are both glibc 22.04, so the binary is ABI-compatible.
+#
+# Honours the separate-repo design: if the source is absent the stage skips
+# cleanly rather than failing the build.
+KCOMMAND_SRC="${KCOMMAND_SRC:-/home/tinkerspace/linux-kernel/os/terminal/kcommand}"
+KCOMMAND_REPO="${KCOMMAND_REPO:-https://github.com/Aghosh-mv/kcommand.git}"
+KCOMMAND_PIN="${KCOMMAND_PIN:-}"
+
+stage_kcommand() {
+  echo "### [kcommand] building KorrinOS terminal..."
+  local src="$KCOMMAND_SRC"
+
+  if [ ! -d "$src" ] && command -v git >/dev/null; then
+    echo "  source not at $src - fetching pinned checkout"
+    "$SUDO" rm -rf "$BUILD/kcommand-src"
+    if [ -n "$KCOMMAND_PIN" ]; then
+      git clone --depth 1 --branch "$KCOMMAND_PIN" "$KCOMMAND_REPO" "$BUILD/kcommand-src" \
+        || { echo "  WARNING: could not fetch kcommand; continuing without it"; return 0; }
+    else
+      git clone --depth 1 "$KCOMMAND_REPO" "$BUILD/kcommand-src" \
+        || { echo "  WARNING: could not fetch kcommand; continuing without it"; return 0; }
+    fi
+    src="$BUILD/kcommand-src"
+  fi
+
+  [ -d "$src" ] || { echo "  WARNING: kcommand source unavailable; skipping"; return 0; }
+  command -v cargo >/dev/null || {
+    echo "  WARNING: cargo not installed; kcommand not in this image"; return 0; }
+
+  ( cd "$src" && cargo build --release --bin kcommand ) >/tmp/kcommand-build.log 2>&1 || {
+    echo "  WARNING: kcommand build failed; last lines:"
+    tail -5 /tmp/kcommand-build.log | sed 's/^/      /'
+    return 0
+  }
+
+  local bin="$src/target/release/kcommand"
+  [ -x "$bin" ] || { echo "  WARNING: kcommand binary not produced"; return 0; }
+
+  "$SUDO" install -m 0755 "$bin" "$ROOTFS/usr/bin/kcommand"
+  # Apache-2.0 obligations travel with the binary.
+  "$SUDO" mkdir -p "$ROOTFS/usr/share/doc/kcommand"
+  "$SUDO" cp "$src/NOTICE.md" "$src/LICENSE" "$ROOTFS/usr/share/doc/kcommand/" 2>/dev/null || true
+  "$SUDO" cp "$src/README.md" "$ROOTFS/usr/share/doc/kcommand/" 2>/dev/null || true
+
+  # The 55-language registry the typography layer reads at runtime.
+  "$SUDO" mkdir -p "$ROOTFS/usr/share/korrinos/i18n"
+  "$SUDO" cp /home/tinkerspace/linux-kernel/os/i18n/languages.tsv \
+    "$ROOTFS/usr/share/korrinos/i18n/languages.tsv"
+
+  echo "  installed $("$SUDO" du -h "$ROOTFS/usr/bin/kcommand" | cut -f1) kcommand"
+  echo "  installed 55-language registry"
+}
+
 # ---- stage_i18n_fonts: install the fonts the 55 languages need --------------
 # The package list is derived from the language registry rather than hardcoded,
 # so adding a language to languages.tsv automatically pulls in its font.
@@ -735,6 +814,9 @@ export DEBIAN_FRONTEND=noninteractive
 kapt "i18n fonts" FONTPKGS_PLACEHOLDER
 FONTSCRIPT
   "$SUDO" sed -i "s/FONTPKGS_PLACEHOLDER/$pkgs/" "$ROOTFS/i18n-fonts.sh"
+  # apt-setup.sh deliberately wipes /var/lib/apt/lists at the end, so the
+  # availability check kapt relies on has nothing to query. Refresh first.
+  "$SUDO" chroot "$ROOTFS" bash -c 'apt-get update -qq' || echo "  WARNING: apt update failed"
   "$SUDO" chroot "$ROOTFS" bash /i18n-fonts.sh || echo "  WARNING: i18n font stage had issues"
   "$SUDO" rm -f "$ROOTFS/i18n-fonts.sh"
 
@@ -815,16 +897,20 @@ stage7_verify() {
 }
 
 run() {
+  preflight || { echo "ABORT: preflight failed."; exit 1; }
   stage1 && stage2_install && stage3_worlds && stage_branding && stage2b_branding && stage_i18n_fonts && stage_kcommand && stage4_live \
-    && stage5_squashfs && stage5_caspermaterials && stage6_iso && stage7_verify
-  echo "DONE: KorrinOS full distribution ISO ready."
+    && stage5_squashfs && stage5_caspermaterials && stage6_iso && stage7_verify \
+    && { echo "DONE: KorrinOS full distribution ISO ready."; } \
+    || echo "BUILD FAILED: a stage returned non-zero (see output above). ISO is NOT complete."
 }
 
 rebuild() {
-  test -d "$ROOTFS/etc" || { echo "no rootfs yet — run full first"; exit 1; }
+  preflight || { echo "ABORT: preflight failed."; exit 1; }
+  test -d "$ROOTFS/etc" || { echo "no rootfs yet - run full first"; exit 1; }
   stage2_install && stage3_worlds && stage_branding && stage2b_branding && stage_i18n_fonts && stage_kcommand && stage4_live \
-    && stage5_squashfs && stage5_caspermaterials && stage6_iso && stage7_verify
-  echo "DONE: KorrinOS rebuild (kept base rootfs)."
+    && stage5_squashfs && stage5_caspermaterials && stage6_iso && stage7_verify \
+    && { echo "DONE: KorrinOS rebuild (kept base rootfs)."; } \
+    || echo "BUILD FAILED: a stage returned non-zero (see output above). ISO is NOT complete."
 }
 
 # finalize: reuse an already-built rootfs + squashfs; just (re)materialize
