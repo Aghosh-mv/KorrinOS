@@ -207,6 +207,51 @@ pub fn describe_active() -> String {
     }
 }
 
+/// The font family to request for the active script.
+///
+/// This is *policy*: which face we want for the language in use. FreeType and
+/// fontconfig still do the actual matching and fallback. Returning `None` means
+/// "no opinion" and the user's own configured family is used untouched.
+pub fn active_font_family() -> Option<&'static str> {
+    Some(match active_script()? {
+        // Our own system faces where we ship them.
+        "latin" | "cyrillic" | "greek" => "Balsamiq Sans",
+        "arabic" => "Noto Sans Mono Arabic",
+        "hebrew" => "Noto Sans Mono Hebrew",
+        "deva" => "Noto Sans Mono Devanagari",
+        "beng" => "Noto Sans Mono Bengali",
+        "taml" => "Noto Sans Mono Tamil",
+        "telu" => "Noto Sans Mono Telugu",
+        "gujr" => "Noto Sans Mono Gujarati",
+        "knda" => "Noto Sans Mono Kannada",
+        "mlym" => "Noto Sans Mono Malayalam",
+        "guru" => "Noto Sans Mono Gurmukhi",
+        "sinh" => "Noto Sans Mono Sinhala",
+        "thai" => "Noto Sans Mono Thai",
+        "lao" => "Noto Sans Mono Lao",
+        "mymr" => "Noto Sans Mono Myanmar",
+        "ethi" => "Noto Sans Mono Ethiopic",
+        "hans" | "hant" => "Noto Sans Mono CJK SC",
+        "jpan" => "Noto Sans Mono CJK JP",
+        "kore" => "Noto Sans Mono CJK KR",
+        _ => return None,
+    })
+}
+
+/// Resolve the family to actually request: our policy for the active script,
+/// unless the user has explicitly chosen a family of their own.
+pub fn resolve_family(configured: &str) -> String {
+    // "monospace" and empty are Alacritty defaults, not a user choice, so our
+    // per-script policy is allowed to override them.
+    let is_default = configured.trim().is_empty() || configured.eq_ignore_ascii_case("monospace");
+    if is_default {
+        if let Some(family) = active_font_family() {
+            return family.to_string();
+        }
+    }
+    configured.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,6 +272,27 @@ mod tests {
     #[test]
     fn unknown_script_does_not_guess() {
         assert_eq!(line_height_policy("klingon"), 1.0);
+    }
+
+    #[test]
+    fn explicit_user_family_is_always_respected() {
+        // A user who picks a font gets that font, whatever the language is.
+        assert_eq!(resolve_family("Iosevka"), "Iosevka");
+        assert_eq!(resolve_family("Some Custom Mono"), "Some Custom Mono");
+    }
+
+    #[test]
+    fn default_family_defers_to_policy() {
+        // No active language known in a test environment must not crash or
+        // invent a family; with no language it falls back to the input.
+        let r = resolve_family("monospace");
+        assert!(!r.is_empty(), "must always return a usable family");
+    }
+
+    #[test]
+    fn blank_family_is_treated_as_default() {
+        let r = resolve_family("   ");
+        assert!(!r.trim().is_empty());
     }
 
     /// Verifies the whole chain against the real registry shipped in the tree:

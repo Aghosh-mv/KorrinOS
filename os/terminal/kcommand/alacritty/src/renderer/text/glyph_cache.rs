@@ -189,7 +189,11 @@ impl GlyphCache {
         } else {
             Style::Description { slant, weight }
         };
-        FontDesc::new(desc.family.clone(), style)
+        // KorrinOS: when the user has not explicitly chosen a family, request
+        // the face that matches the active language's script. An explicit
+        // choice is always respected.
+        let family = crate::renderer::text::kcommand_typography::resolve_family(&desc.family);
+        FontDesc::new(family, style)
     }
 
     /// Get a glyph from the font.
