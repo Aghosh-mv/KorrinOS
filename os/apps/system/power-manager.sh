@@ -83,10 +83,23 @@ create_profile() {
 # Apply profile
 apply_profile() {
     local profile=$1
+
+    # SECURITY: the profile name reaches a `source`. It came straight from argv
+    # and was only checked with [ -f "$PROFILES_DIR/$profile.conf" ], so a name
+    # like ../../../../../tmp/evil traversed out of the profile directory and
+    # sourced an arbitrary file AS SHELL CODE. That is remote/local code
+    # execution: `power-manager.sh apply ../../../../tmp/x` ran `x` with this
+    # user's privileges. Restrict the name to a plain profile token.
+    if [[ ! "$profile" =~ ^[A-Za-z0-9._-]+$ ]] || [[ "$profile" == *..* ]]; then
+        echo "Invalid profile name: $profile"
+        echo "Allowed: letters, digits, dot, underscore, hyphen (no '..')."
+        return 1
+    fi
+
     local profile_file="$PROFILES_DIR/$profile.conf"
-    
+
     [ ! -f "$profile_file" ] && echo "Profile not found: $profile" && return 1
-    
+
     echo "Applying profile: $profile"
     source "$profile_file"
     

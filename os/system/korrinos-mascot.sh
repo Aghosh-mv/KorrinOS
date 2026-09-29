@@ -1,8 +1,20 @@
 #!/bin/bash
 # KorrinOS Mascot Framework v1.0
-# Hooks for a desktop companion character
-# NO CONTENT YET — waiting for user's mascot file
-# Just the framework: event hooks, click handler, positioning
+# Hooks for an optional desktop companion.
+#
+# STATUS: FRAMEWORK ONLY - no companion is installed and nothing invokes this
+# script. It is kept because the event hooks below document the intended
+# integration points, but a shipped, unreferenced shell that advertises a
+# mascot and then renders nothing reads as unfinished product. Install a
+# companion into $MASCOT_HTML to activate it, or remove this file.
+#
+# To activate:
+#   1. place the companion markup at $MASCOT_DIR/mascot.html
+#   2. define the on_* callbacks referenced in the hooks
+#   3. call `start` from the desktop session startup
+#
+# Without a companion installed, every subcommand is a no-op that says so
+# rather than pretending to work.
 
 MASCOT_DIR="/opt/korrinos/os/mascot"
 MASCOT_HTML="$MASCOT_DIR/mascot.html"

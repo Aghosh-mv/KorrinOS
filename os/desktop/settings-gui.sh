@@ -29,7 +29,7 @@ save_setting() {
 show_settings() {
     clear
     echo "╔══════════════════════════════════════════════════════════╗"
-    echo "║                 TINKEROS SETTINGS                       ║"
+    echo "║                    KORRINOS SETTINGS                     ║"
     echo "╚══════════════════════════════════════════════════════════╝"
     echo ""
     echo "  1)  Appearance"
@@ -489,7 +489,7 @@ show_users() {
 show_about() {
     clear
     echo "═══════════════════════════════════════════════════════════"
-    echo "  ABOUT TINKEROS"
+    echo "  ABOUT KORRINOS"
     echo "═══════════════════════════════════════════════════════════"
     echo ""
     echo "  KorrinOS v1.0"

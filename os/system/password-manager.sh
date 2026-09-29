@@ -25,7 +25,7 @@ AUTO_LOCK_TIME=300  # 5 minutes
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║         TINKEROS SECURE PASSWORD MANAGER                ║${NC}"
+    echo -e "${BLUE}║             KORRINOS SECURE PASSWORD MANAGER             ║${NC}"
     echo -e "${BLUE}║         Your data. Your device. Your rules.             ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""

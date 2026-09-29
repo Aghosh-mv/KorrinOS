@@ -216,9 +216,9 @@ HTMLEOF
 # ============================================================
 case "${1:-}" in
     status)
-        local level=$(get_battery_level)
-        local status=$(get_battery_status)
-        local message=$(get_battery_message "$level")
+        level=$(get_battery_level)
+        status=$(get_battery_status)
+        message=$(get_battery_message "$level")
         echo "Battery: ${level}% (${status})"
         echo "Message: ${message}"
         ;;

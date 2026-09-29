@@ -64,18 +64,29 @@ battery_predict() {
     
     if [ -n "$rate" ] && [ "$rate" -gt 0 ] 2>/dev/null; then
       local power=$((rate * voltage / 1000000000000))
-      local remaining=$((capacity * 36 / max 1))
-      local hours=$((remaining / 60))
-      local mins=$((remaining % 60))
-      local die_time=$(date -d "+${remaining} minutes" +%I:%M\ %p 2>/dev/null)
-      
-      echo "Battery: ${capacity}% (${status})"
-      echo "Estimated: ${hours}h ${mins}m remaining"
-      [ -n "$die_time" ] && echo "Dies at: ~${die_time}"
-      
+      # The old expression was `$((capacity * 36 / max 1))`. "max 1" is not valid
+      # arithmetic, so bash raised "division by 0 (error token is \"max 1\")" and,
+      # under `set -e`, killed the script. The intended divisor is the measured
+      # power draw in watts, which was computed above but never used.
+      if [ "$power" -gt 0 ] 2>/dev/null; then
+        # minutes = capacity% * 36 Wh * 60 min/Wh / (100 * power_W)
+        local remaining=$(( capacity * 2160 / (100 * power) ))
+        local hours=$((remaining / 60))
+        local mins=$((remaining % 60))
+        local die_time=$(date -d "+${remaining} minutes" +%I:%M\ %p 2>/dev/null)
+
+        echo "Battery: ${capacity}% (${status})"
+        echo "Estimated: ${hours}h ${mins}m remaining"
+        [ -n "$die_time" ] && echo "Dies at: ~${die_time}"
+      else
+        # Power draw unreadable (0 W) - report state without a runtime estimate.
+        echo "Battery: ${capacity}% (${status})"
+        echo "Estimated: unavailable (power draw unreadable)"
+      fi
+
       if command -v notify-send &>/dev/null && [ "$capacity" -lt 20 ]; then
         notify-send -a "KorrinOS" -i battery-low "Battery Low" \
-          "${capacity}% remaining. ~${hours}h ${mins}m left." \
+          "${capacity}% remaining." \
           --expire-time=10000
       fi
     else

@@ -675,7 +675,16 @@ validate_install() {
   fi
 
   echo "Checking boot files..."
-  if [ -f "$target/boot/vmlinuz" ] || [ -f "$target/boot/vmlinuz-"* ]; then
+  # Globs are not expanded inside [ ]; "vmlinuz-*" would be a literal name and
+  # the check would always report the kernel missing.
+  local found_kernel=0
+  [ -f "$target/boot/vmlinuz" ] && found_kernel=1
+  if [ "$found_kernel" -eq 0 ]; then
+    for k in "$target"/boot/vmlinuz-*; do
+      [ -f "$k" ] && { found_kernel=1; break; }
+    done
+  fi
+  if [ "$found_kernel" -eq 1 ]; then
     echo "  Kernel: found"
   else
     echo "  Kernel: NOT found"

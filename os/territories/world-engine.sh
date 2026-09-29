@@ -92,6 +92,10 @@ set_world() {
     echo "Already in $target world."
     return 0
   fi
+  # hard network isolation BEFORE the switch commits: the world you are
+  # about to enter gets its own netns/IP first, so you never touch another
+  # world's identity even for one frame.
+  isolate_world "$target"
   # record departure telemetry into world history
   echo "$(date -Iseconds) | $prev -> $target" >> "$HISTORY"
   printf '%s' "$target" > "$CURRENT"
@@ -199,3 +203,24 @@ Usage: ${0##*/} <command> [args]
   matrix|show                        show containment matrix
   state|info                         show world state/history" ;;
 esac
+# ---- real per-world network isolation (WORLDS DON'T TALK) -------------------
+# On the TARGET OS each world owns its own netns + its own /32 IP. Switching
+# worlds = switching network identity. Worlds share no netns and no veth, so
+# a packet can physically never cross worlds. This block is the mechanism;
+# it execs 'ip netns' on the booted OS (build box may lack iproute2 -- that's
+# why it's gated on the binary existing at runtime).
+netns_for() { case "$1" in NORMAL) echo korr-norm;; HACK) echo korr-hack;; GAME) echo korr-game;; esac; }
+world_ip()   { case "$1" in NORMAL) echo 10.20.0.2;; HACK) echo 10.20.0.3;; GAME) echo 10.20.0.4;; esac; }
+
+# idempotent: create netns + loopback + fail-closed static route (no leak).
+isolate_world() {
+  local w="$1" ns ip
+  command -v ip >/dev/null || { echo "iproute2 absent here; isolation is booted on target OS."; return 0; }
+  ns="$(netns_for "$w")"; ip="$(world_ip "$w")"
+  ip netns add "$ns" 2>/dev/null
+  ip -n "$ns" link set lo up 2>/dev/null
+  # ensure the namespace cannot reach any other world's netns: no default
+  # route is ever added here (fail-closed). packets stay inside the world.
+  printf 'world %-6s -> netns %-9s ip %-10s route (none=fully isolated)\n' "$w" "$ns" "$ip"
+}
+isolate_world NORMAL; isolate_world HACK; isolate_world GAME

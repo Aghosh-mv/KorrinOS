@@ -111,17 +111,22 @@ searchie_natural() {
   fi
   
   # Build search command
-  local cmd="find $HOME -maxdepth 5 -type f $time_range $size_filter"
-  if [ -n "$file_type" ]; then
-    cmd="$cmd -name '$file_type'"
-  fi
   
   echo "Natural query: $query"
   echo "Parsed: type=$file_type time=$time_range size=$size_filter"
   echo ""
   
-  # Execute search
-  eval "$cmd" 2>/dev/null | head -30 | while read -r f; do
+  # Execute search.
+  # NOTE: this used to be `eval "$cmd"`. Every component of $cmd happens to be
+  # a hardcoded literal today, so it was not exploitable, but a single future
+  # branch that derives any part of $cmd from the user's query would turn it
+  # into a command injection. The array form has no shell parsing at all.
+  local -a find_args=(find "$HOME" -maxdepth 5 -type f)
+  [ -n "$time_range" ] && read -r -a find_args <<<"${find_args[*]} $time_range"
+  [ -n "$size_filter" ] && read -r -a find_args <<<"${find_args[*]} $size_filter"
+  [ -n "$file_type" ] && find_args+=(-name "$file_type")
+
+  "${find_args[@]}" 2>/dev/null | head -30 | while read -r f; do
     echo " $f ($(stat -c %y "$f" 2>/dev/null | cut -d' ' -f1))"
   done
   

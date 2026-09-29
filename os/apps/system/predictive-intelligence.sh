@@ -39,7 +39,9 @@ collect_data() {
     local net_rx=0
     local net_tx=0
     
-    for iface in $(ls /sys/class/net/); do
+    for ifpath in /sys/class/net/*; do
+        [ -e "$ifpath" ] || continue
+        iface=$(basename "$ifpath")
         local rx=$(cat /sys/class/net/$iface/statistics/rx_bytes 2>/dev/null || echo 0)
         local tx=$(cat /sys/class/net/$iface/statistics/tx_bytes 2>/dev/null || echo 0)
         net_rx=$((net_rx + rx))

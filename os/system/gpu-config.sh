@@ -3,26 +3,34 @@
 
 set -e
 
+# Vendor codes reported via GPU_VENDOR rather than the exit status.
+# detect_gpu() must always return 0: under `set -e` a top-level function that
+# returns non-zero aborts the whole script, so returning 1/2/3 here meant the
+# `gpu=$?` capture below was never reached and driver install never ran.
+GPU_VENDOR=0   # 0 unknown, 1 nvidia, 2 amd, 3 intel
+
 detect_gpu() {
     echo "Detecting GPU..."
     echo ""
-    
+
+    GPU_VENDOR=0
     if lspci | grep -qi nvidia; then
         echo "  NVIDIA GPU detected"
         echo "  Model: $(lspci | grep -i vga | grep -i nvidia | cut -d: -f3)"
-        return 1
+        GPU_VENDOR=1
     elif lspci | grep -qi amd; then
         echo "  AMD GPU detected"
         echo "  Model: $(lspci | grep -i vga | grep -i amd | cut -d: -f3)"
-        return 2
+        GPU_VENDOR=2
     elif lspci | grep -qi intel; then
         echo "  Intel GPU detected"
         echo "  Model: $(lspci | grep -i vga | grep -i intel | cut -d: -f3)"
-        return 3
+        GPU_VENDOR=3
     else
         echo "  Unknown GPU"
-        return 0
+        GPU_VENDOR=0
     fi
+    return 0
 }
 
 install_nvidia() {
@@ -118,9 +126,7 @@ show_status() {
 
 auto_configure() {
     detect_gpu
-    local gpu_type=$?
-    
-    case $gpu_type in
+    case $GPU_VENDOR in
         1) install_nvidia; configure_nvidia ;;
         2) install_amd; configure_amd ;;
         3) install_intel; configure_intel ;;
@@ -149,20 +155,20 @@ case "$1" in
         ;;
     install)
         detect_gpu
-        local gpu=$?
-        case $gpu in
+        case $GPU_VENDOR in
             1) install_nvidia ;;
             2) install_amd ;;
             3) install_intel ;;
+            *) echo "  Unsupported or unknown GPU vendor; nothing to install." ;;
         esac
         ;;
     configure)
         detect_gpu
-        local gpu=$?
-        case $gpu in
+        case $GPU_VENDOR in
             1) configure_nvidia ;;
             2) configure_amd ;;
             3) configure_intel ;;
+            *) echo "  Unsupported or unknown GPU vendor; nothing to configure." ;;
         esac
         ;;
     auto|setup)

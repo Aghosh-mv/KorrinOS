@@ -1,5 +1,5 @@
 /*
- * TinkerOS CAT Control - capability-probing Intel Cache Allocation backend
+ * KorrinOS CAT Control - capability-probing Intel Cache Allocation backend
  * Partitions L2/L3 cache via Cache Bit Masks (CBM) using:
  *   - MSR-based CAT (IA32_L3_MASK_x / IA32_L2_MASK_x)
  *   - resctrl sysfs fallback (/sys/fs/resctrl)
@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
     }
     if (argi >= argc) {
         fprintf(stderr,
-          "TinkerOS cat_control v1.0\n"
+          "KorrinOS cat_control v1.0\n"
           "Usage:\n"
           "  cat_control probe                     - probe CAT capability\n"
           "  cat_control l3 <mask_hex> [class]     - set L3 CBM mask\n"

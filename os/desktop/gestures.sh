@@ -17,7 +17,7 @@ GESTURES_LOG="/var/log/tinker/gestures.log"
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║              TINKEROS TOUCHPAD GESTURES                 ║${NC}"
+    echo -e "${BLUE}║                KORRINOS TOUCHPAD GESTURES                ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -213,8 +213,11 @@ perform_action() {
             echo "App grid"
             ;;
         terminal)
-            # Open terminal
-            if command -v gnome-terminal >/dev/null 2>&1; then
+            # Open terminal. kcommand is the KorrinOS terminal and is preferred;
+            # the others are only fallbacks for a stripped-down install.
+            if command -v kcommand >/dev/null 2>&1; then
+                kcommand &
+            elif command -v gnome-terminal >/dev/null 2>&1; then
                 gnome-terminal &
             elif command -v xfce4-terminal >/dev/null 2>&1; then
                 xfce4-terminal &

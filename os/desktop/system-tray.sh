@@ -3,9 +3,13 @@
 
 # Battery indicator
 show_battery() {
-    if [ -f /sys/class/power_supply/BAT*/capacity ]; then
-        local bat=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1)
-        local status=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -1)
+    # Globs are NOT expanded inside [ ], so `[ -f /path/BAT*/capacity ]` is a
+    # literal string test that is always false. Resolve the glob first.
+    local bat_cap
+    bat_cap=$(ls -1 /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1)
+    if [ -n "$bat_cap" ] && [ -f "$bat_cap" ]; then
+        local bat=$(cat "$bat_cap" 2>/dev/null | head -1)
+        local status=$(cat "${bat_cap%/capacity}/status" 2>/dev/null | head -1)
         
         case $bat in
             [0-9]|[1-2][0-9]) icon="" ;;

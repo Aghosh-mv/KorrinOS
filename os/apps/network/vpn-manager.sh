@@ -45,7 +45,9 @@ status() {
     local vpn_iface=""
     
     # Detect via interfaces
-    for iface in $(ls /sys/class/net 2>/dev/null); do
+    for iface in /sys/class/net/*; do
+        [ -e "$iface" ] || continue
+        iface=$(basename "$iface")
         case "$iface" in
             tun*|wg*|tap*|wg0*)
                 vpn_active=1

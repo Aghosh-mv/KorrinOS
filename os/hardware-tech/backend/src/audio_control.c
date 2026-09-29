@@ -1,5 +1,5 @@
 /*
- * TinkerOS Audio Control - capability-probing real audio backend
+ * KorrinOS Audio Control - capability-probing real audio backend
  * Drives actual audio stack for ray-traced-audio signal path:
  *   - ALSA control interface: /dev/snd/controlC* (snd_ctl) - real device
  *     names, playback volumes, sample rate, period size
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
     for (; argi<argc; argi++){ if(!strcmp(argv[argi],"--dry-run")) dry=1; else break;}
     if (argi>=argc) {
         fprintf(stderr,
-          "TinkerOS audio_control v1.0 - real audio backend\n"
+          "KorrinOS audio_control v1.0 - real audio backend\n"
           "Usage:\n"
           "  audio_control probe                - detect real audio interfaces\n"
           "  audio_control position             - card/channel map\n"

@@ -1,5 +1,5 @@
 /*
- * TinkerOS USB Control - capability-probing real USB power backend
+ * KorrinOS USB Control - capability-probing real USB power backend
  * Controls actual USB power/autosuspend interfaces:
  *   - power/autosuspend_delay and power/control, under /sys/bus/usb/devices
  *   - power/max_power (mA) under /sys/bus/usb/devices
@@ -53,7 +53,7 @@ int main(int argc,char **argv){
     for(;argi<argc;argi++){ if(!strcmp(argv[argi],"--dry-run"))dry=1; else break; }
     if(argi>=argc){
         fprintf(stderr,
-          "TinkerOS usb_control v1.0 - real USB power backend\n"
+          "KorrinOS usb_control v1.0 - real USB power backend\n"
           "Usage:\n"
           "  usb_control probe                     - detect real USB devices\n"
           "  usb_control list                      - list devices + class + power\n"

@@ -59,7 +59,7 @@ agent_open_app() {
       done
       ;;
     *terminal*|*konsole*|*alacritty*|*kitty*)
-      for t in alacritty kitty wezterm konsole gnome-terminal; do
+      for t in kcommand alacritty kitty wezterm konsole gnome-terminal; do
         if command -v "$t" &>/dev/null; then
           nohup "$t" &>/dev/null &
           ai_narrate "Opened terminal" 1500 2>/dev/null

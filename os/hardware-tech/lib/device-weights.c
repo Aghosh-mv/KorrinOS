@@ -1,5 +1,5 @@
 /*
- * TinkerOS Device Position & Weight Calculator
+ * KorrinOS Device Position & Weight Calculator
  * Probes the real hardware actually present on this machine and computes, for
  * every device the hardware-tech layer can control, its physical position
  * (bus/socket/card) and a weight score = measured real resources it consumes.
@@ -80,7 +80,7 @@ int main(void){
     printf("  \"thermal\": {\"position\": \"zones\", \"weight\": %d},\n", thermal);
     printf("  \"display\": {\"position\": \"backlight\", \"weight\": %d},\n", backlight);
     printf("  \"fpga\":    {\"position\": \"pci bus\", \"weight\": %d},\n", fpgapci);
-    printf("  \"format\":  \"TinkerOS device position/weight probe v1.0\"\n");
+    printf("  \"format\":  \"KorrinOS device position/weight probe v1.0\"\n");
     printf("}\n");
     return 0;
 }

@@ -17,7 +17,7 @@ CPU_GOVERNOR_FILE="/tmp/tinker-cpu-governor"
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║                  TINKEROS GAMING MODE                   ║${NC}"
+    echo -e "${BLUE}║                   KORRINOS GAMING MODE                   ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }

@@ -136,12 +136,29 @@ ai_card_code() {
   [ -n "$title" ] && header="<div style='padding:8px 12px;background:#0d1117;border-bottom:1px solid #21262d;color:#c9d1d9;font-size:12px;display:flex;justify-content:space-between;'><span>${title}</span><span style='color:#8b949e;'>${lang}</span></div>"
   [ -n "$filename" ] && header="<div style='padding:8px 12px;background:#0d1117;border-bottom:1px solid #21262d;color:#c9d1d9;font-size:12px;display:flex;justify-content:space-between;'><span> ${filename}</span><span style='color:#8b949e;'>${lang}</span></div>"
 
+  # Payload for the Copy button.
+  # The old inline form was `${(python3 -c ...)}` — `${(` is a "bad substitution"
+  # and aborted the whole script the moment a code card was rendered. It also
+  # mis-grouped its own fallback (`||` binds looser than `|`, so the `sed` only
+  # ever applied to the `echo` branch).
+  # Percent-encode the snippet up front so it is safe to drop inside the
+  # single-quoted JS string; the button decodes it again on click.
+  local copy_payload
+  copy_payload=$(printf '%s' "$code" | python3 -c \
+    'import sys,urllib.parse; sys.stdout.write(urllib.parse.quote(sys.stdin.read()))' \
+    2>/dev/null) || copy_payload=""
+  if [ -z "$copy_payload" ]; then
+    # python3 unavailable: fall back to escaping quotes/backslashes for JS.
+    copy_payload=${code//\\/\\\\}
+    copy_payload=${copy_payload//\'/\\\'}
+  fi
+
   cat <<EOHTML
 <div class="ai-card" id="${id}" style="max-width:700px;border-radius:12px;overflow:hidden;border:1px solid #21262d;">
   ${header}
   <div style="position:relative;">
     <pre style='margin:0;padding:12px;background:#0d1117;color:#c9d1d9;font-family:"JetBrains Mono",monospace;font-size:12px;line-height:1.5;overflow-x:auto;white-space:pre-wrap;word-break:break-word;'>${numbered}</pre>
-    <button onclick="navigator.clipboard.writeText(decodeURIComponent('${(python3 -c "import urllib.parse; print(urllib.parse.quote('''$code'''))" 2>/dev/null || echo "$code" | sed 's/"/\\"/g')}'))" style="position:absolute;top:4px;right:4px;padding:4px 8px;background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:6px;cursor:pointer;font-size:11px;"> Copy</button>
+    <button onclick="navigator.clipboard.writeText(decodeURIComponent('${copy_payload}'))" style="position:absolute;top:4px;right:4px;padding:4px 8px;background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:6px;cursor:pointer;font-size:11px;"> Copy</button>
   </div>
 </div>
 EOHTML

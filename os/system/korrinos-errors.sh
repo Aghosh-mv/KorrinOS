@@ -235,9 +235,16 @@ friendly_error() {
 # ============================================================
 
 # Wrap common commands
+# NOTE: this used to be
+#     eval "original_$(echo $cmd | tr '-' '_')=$(command -v $cmd)"
+# which EXECUTED the resolved path as shell code. A PATH entry containing a
+# quote or ';' (a file literally named `python3;rm -rf ~` is legal on Linux)
+# would therefore run arbitrary commands. printf -v assigns the value as data.
 for cmd in cp mv rm chmod chown mkdir rmdir touch ln cat ls grep find apt apt-get pip npm git make gcc g++ python3 node curl wget ssh scp rsync docker systemctl mount umount; do
     if command -v "$cmd" &>/dev/null; then
-        eval "original_$(echo $cmd | tr '-' '_')=$(command -v $cmd)"
+        _resolved=$(command -v "$cmd")
+        _varname="original_$(printf '%s' "$cmd" | tr '-' '_')"
+        printf -v "$_varname" '%s' "$_resolved"
     fi
 done
 

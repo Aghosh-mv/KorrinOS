@@ -31,7 +31,7 @@ widget_clock() {
   local date_str=$(date +"%A, %B %d, %Y")
   
   echo "╔══════════════════════════╗"
-  echo "║     KorrinOS Clock       ║"
+  echo "║                      KorrinOS Clock                      ║"
   echo "╠══════════════════════════╣"
   echo "║  $time_str              ║"
   echo "║  $date_str              ║"

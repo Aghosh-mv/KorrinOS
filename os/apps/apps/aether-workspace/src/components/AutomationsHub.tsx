@@ -304,7 +304,7 @@ export const AutomationsHub: React.FC<AutomationsHubProps> = ({
               executionLogs.map((log, index) => (
                 <div key={index} className="flex items-start space-x-2 leading-relaxed">
                   <span className="text-stone-600 select-none">[{index + 1}]</span>
-                  <span className="text-emerald-400 select-none">❯</span>
+                  <Play className="w-3 h-3 shrink-0 text-emerald-500" aria-hidden="true" />
                   <span className="text-stone-300">{log}</span>
                 </div>
               ))

@@ -18,7 +18,7 @@ OCR_LANG="eng"
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║                TINKEROS OCR EVERYWHERE                  ║${NC}"
+    echo -e "${BLUE}║                 KORRINOS OCR EVERYWHERE                  ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -38,11 +38,11 @@ check_deps() {
     if [ ${#missing[@]} -gt 0 ]; then
         echo -e "${YELLOW}Installing OCR dependencies...${NC}"
         if command -v apt >/dev/null 2>&1; then
-            sudo apt install -y tesseract-ocr imagemagick ${missing[@]/#/tesseract-ocr-}
+            sudo apt install -y tesseract-ocr imagemagick "${missing[@]/#/tesseract-ocr-}"
         elif command -v dnf >/dev/null 2>&1; then
-            sudo dnf install -y tesseract imagemagick ${missing[@]/#/tesseract-}
+            sudo dnf install -y tesseract imagemagick "${missing[@]/#/tesseract-}"
         elif command -v pacman >/dev/null 2>&1; then
-            sudo pacman -S --noconfirm tesseract imagemagick ${missing[@]/#/tesseract-}
+            sudo pacman -S --noconfirm tesseract imagemagick "${missing[@]/#/tesseract-}"
         fi
     fi
 }

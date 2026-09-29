@@ -1,3 +1,4 @@
+import { Shield } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -510,7 +511,7 @@ export default function App() {
             <div className="flex-1 flex items-center justify-center p-6 bg-stone-950">
               <div className="max-w-xl text-center space-y-4">
                 <div className="w-16 h-16 rounded-2xl bg-stone-900 border border-stone-800 flex items-center justify-center mx-auto shadow-lg">
-                  <span className="text-2xl">🛡️</span>
+                  <Shield className="w-7 h-7 text-stone-400" aria-hidden="true" />
                 </div>
                 <h2 className="text-base font-semibold text-stone-100">
                   Sovereign Cryptographic Vault & Offline Sync

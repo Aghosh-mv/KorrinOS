@@ -18,7 +18,7 @@ BT_LOG="/var/log/tinker/bluetooth.log"
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║           TINKEROS BLUETOOTH AUTO-CONNECT               ║${NC}"
+    echo -e "${BLUE}║             KORRINOS BLUETOOTH AUTO-CONNECT              ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }

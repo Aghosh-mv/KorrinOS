@@ -65,7 +65,7 @@ print(f'$key = {$value}')
 # Install picom compositor
 cmd_install() {
   echo "╔══════════════════════════════════════════════╗"
-  echo "║    KorrinOS Smooth UI — Mac-like Experience  ║"
+  echo "║         KorrinOS Smooth UI — Mac-like Experience         ║"
   echo "╚══════════════════════════════════════════════╝"
   echo ""
   

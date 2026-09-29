@@ -7,7 +7,7 @@ set -e
 # Action definitions
 declare -A ACTIONS=(
     ["open_browser"]="xdg-open https://www.google.com &"
-    ["open_terminal"]="gnome-terminal &"
+    ["open_terminal"]="kcommand &"
     ["open_files"]="xdg-open ~ &"
     ["open_settings"]="gnome-control-center &"
     ["screenshot"]="import -window root ~/Pictures/ss-\$(date +%s).png"

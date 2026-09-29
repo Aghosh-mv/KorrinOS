@@ -308,7 +308,7 @@ PYEOF
 # ── The Full Energy Optimization Run ───────────────────────────────────
 optimize(){
   echo "╔══════════════════════════════════════════════════════════╗"
-  echo "║    KorrinOS ENERGY-TO-VALUE SCHEDULER                 ║"
+  echo "║            KorrinOS ENERGY-TO-VALUE SCHEDULER            ║"
   echo "╠══════════════════════════════════════════════════════════╣"
   echo "║  Calculating: which tasks deserve your battery        ║"
   echo "╚══════════════════════════════════════════════════════════╝"

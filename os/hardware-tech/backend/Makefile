@@ -1,5 +1,5 @@
-# TinkerOS hardware-tech C backends
-# Safe, capability-probing physical drivers for TinkerOS hardware features.
+# KorrinOS hardware-tech C backends
+# Safe, capability-probing physical drivers for KorrinOS hardware features.
 # Compiled locally (gcc). No network, no dependencies beyond libc.
 
 CC      ?= gcc

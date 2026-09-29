@@ -1425,7 +1425,7 @@ setup_context_menu() {
 <?xml version="1.0" encoding="UTF-8"?>
 <xfce-menu>
   <item label="Open Terminal Here" icon="utilities-terminal">
-    <action>xfce4-terminal --working-directory=%d</action>
+    <action>kcommand --working-directory=%d</action>
   </item>
   <item label="Open File Manager" icon="system-file-manager">
     <action>thunar %d</action>
@@ -1487,7 +1487,7 @@ EOF
 [Desktop Entry]
 Name=Terminal
 Comment=Open Terminal
-Exec=xfce4-terminal
+Exec=kcommand
 Icon=utilities-terminal
 Type=Application
 EOF

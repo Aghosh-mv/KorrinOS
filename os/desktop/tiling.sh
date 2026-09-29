@@ -17,7 +17,7 @@ TILING_STATE="/tmp/tinker-tiling-state"
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║            TINKEROS WINDOW TILING MANAGER               ║${NC}"
+    echo -e "${BLUE}║              KORRINOS WINDOW TILING MANAGER              ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }

@@ -40,7 +40,7 @@ cmd_backup() {
   mkdir -p "$backup_path"
   
   echo "╔══════════════════════════════════════════════╗"
-  echo "║       KorrinOS Smart Backup System           ║"
+  echo "║               KorrinOS Smart Backup System               ║"
   echo "╚══════════════════════════════════════════════╝"
   echo ""
   echo "  Creating backup: ${name}"

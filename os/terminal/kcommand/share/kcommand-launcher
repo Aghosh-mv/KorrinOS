@@ -1,0 +1,76 @@
+#!/bin/bash
+# kcommand launcher — the opt-in entry point to the KorrinOS terminal.
+#
+# Installed under two names:
+#   kcommand  the plain command
+#   @k        a short prefix, so a kcommand session is one keystroke away
+#
+# Why not "!": in bash, "!" is the reserved pipeline-negation word, not a
+# command. Typing "! kcommand" still RUNS kcommand and merely inverts its exit
+# status, so the syntax works perfectly well as a launcher - the only visible
+# side effect is a flipped $?. We compensate for that below, which makes
+# "! kcommand" behave exactly as typed.
+#
+# "@k" is also installed as a conventional prefix for anyone who prefers a
+# prefix that does not involve exit-code gymnastics. Set KCOMMAND_PREFIX to
+# choose another one.
+
+set -uo pipefail
+
+KC_BIN="${KCOMMAND_BIN:-/usr/bin/kcommand}"
+
+# When set, the exit status is inverted before returning. The launcher enables
+# this by default so that "! kcommand ..." reports the wrapped command's real
+# status despite bash negating it. Set KCOMMAND_NO_INVERT=1 for direct use
+# where no negation is happening.
+KC_INVERT="${KCOMMAND_NO_INVERT:+0}"
+KC_INVERT="${KC_INVERT:-1}"
+
+kc_finish() {  # kc_finish <status>
+    local rc="$1"
+    if [ "$KC_INVERT" = "1" ]; then
+        # Only a 0/1 code survives a shell's "!" negation meaningfully.
+        if [ "$rc" -eq 0 ]; then return 1; fi
+        return 0
+    fi
+    return "$rc"
+}
+
+# Deliberately NO fallback to a source/build directory.
+#
+# An earlier version walked up to the build tree and launched the terminal from
+# there, which meant a KorrinOS terminal could open on a build machine. The
+# build host is not a target device and must never run the OS. The only valid
+# location is the installed binary; if it is absent, the launcher says so.
+if [ ! -x "$KC_BIN" ]; then
+    printf 'kcommand is not installed on this system.\n' >&2
+    printf 'Expected: %s\n' "$KC_BIN" >&2
+    printf 'It ships with KorrinOS. On a build host it is intentionally absent.\n' >&2
+    exit 127
+fi
+
+# No arguments: open a terminal. exec replaces this process, so the exit code
+# of the terminal itself is what the parent shell sees, negated by "!".
+if [ "$#" -eq 0 ]; then
+    exec "$KC_BIN"
+fi
+
+# Arguments are either kcommand's own flags, or a command to run inside it.
+case "$1" in
+    -*)
+        exec "$KC_BIN" "$@"
+        ;;
+esac
+
+if command -v "$1" >/dev/null 2>&1; then
+    "$KC_BIN" -e "$@"
+    kc_finish $?
+    exit $?
+fi
+
+# Not a known command and not a flag: hand it to kcommand and let it decide,
+# which surfaces a proper error rather than silently opening an empty window.
+"$KC_BIN" -e "$SHELL" -lc "exec $*"
+rc=$?
+kc_finish "$rc"
+exit $?

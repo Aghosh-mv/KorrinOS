@@ -18,7 +18,7 @@ VOICE_LOG="/var/log/tinker/voice.log"
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║              TINKEROS VOICE COMMANDS                    ║${NC}"
+    echo -e "${BLUE}║                 KORRINOS VOICE COMMANDS                  ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -192,7 +192,7 @@ process_voice_command() {
             ;;
         *"open terminal"*|*"start terminal"*)
             text_to_speech "Opening terminal"
-            gnome-terminal &
+            kcommand &
             ;;
         *"open files"*|*"file manager"*|*"open folder"*)
             text_to_speech "Opening file manager"
@@ -416,8 +416,8 @@ case "$1" in
         echo -e "${YELLOW}Testing voice recognition...${NC}"
         echo "Say something..."
         
-        local audio=$(record_audio 3)
-        local text=$(speech_to_text "$audio")
+        audio=$(record_audio 3)
+        text=$(speech_to_text "$audio")
         
         if [ -n "$text" ]; then
             echo -e "${GREEN}Recognized: $text${NC}"

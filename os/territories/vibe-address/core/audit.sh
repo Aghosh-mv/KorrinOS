@@ -1,4 +1,8 @@
+#!/usr/bin/env bash
 # veil: audit.sh — expose engine internals for a stored envelope or a query.
+#
+# LIBRARY: this file defines functions only and is meant to be sourced
+# (`. core/audit.sh`), not executed. It is executable purely for convenience.
 #   ve_audit_event fp     full artifact dump (index/cms/ir/sarray/markov/lsh)
 #   ve_audit_query terms  per-relax-tier candidate ladder (L0..L6 counts)
 

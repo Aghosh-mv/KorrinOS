@@ -18,7 +18,7 @@ SHORTCUTS_LOG="/var/log/tinker/shortcuts.log"
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║              TINKEROS KEYBOARD SHORTCUTS                ║${NC}"
+    echo -e "${BLUE}║               KORRINOS KEYBOARD SHORTCUTS                ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }

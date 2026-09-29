@@ -1,5 +1,5 @@
 /*
- * TinkerOS Battery Control - capability-probing charge/health backend
+ * KorrinOS Battery Control - capability-probing charge/health backend
  * For lifespan-doubler (micro-current trickle charging).
  * Operates real battery interfaces:
  *   - read status/level/voltage/current/temp/health from /sys/class/power_supply
@@ -96,10 +96,10 @@ int main(int argc, char **argv) {
     }
     if (argi >= argc) {
         fprintf(stderr,
-          "TinkerOS battery_control v1.0\n"
+          "KorrinOS battery_control v1.0\n"
           "Usage:\n"
           "  battery_control probe                 - read status + limit support\n"
-          "  battery_control charge-limit <0-100>  - set charge stop threshold %\n"
+          "  battery_control charge-limit <0-100>  - set charge stop threshold %%\n"
           "  battery_control current <ma>          - set charge current (ma)\n"
           "  battery_control status                - same as probe\n");
         return 2;

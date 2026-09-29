@@ -1,5 +1,5 @@
 /*
- * TinkerOS FPGA Control - capability-probing real FPGA + accel backend
+ * KorrinOS FPGA Control - capability-probing real FPGA + accel backend
  * Works against actual kernel interfaces for real FPGA/accelerator hardware:
  *   - XRT (Xilinx/AMD Alveo): /sys/bus/pci + xclbin, /dev/xclmgmt /dev/xclbin
  *   - Intel FPGA / OFS: /sys/class/fpga_region, resource0, user clock freq
@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     }
     if (argi >= argc) {
         fprintf(stderr,
-          "TinkerOS fpga_control v1.0 - real FPGA/accelerator backend\n"
+          "KorrinOS fpga_control v1.0 - real FPGA/accelerator backend\n"
           "Usage:\n"
           "  fpga_control probe            - detect real FPGA/accel interfaces\n"
           "  fpga_control position         - physical bus/device/function map\n"

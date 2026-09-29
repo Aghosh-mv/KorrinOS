@@ -10,7 +10,7 @@ mkdir -p "$NET_DIR"
 # Network status overview
 cmd_status() {
   echo "╔══════════════════════════════════════════════╗"
-  echo "║         KorrinOS Network Manager             ║"
+  echo "║                 KorrinOS Network Manager                 ║"
   echo "╚══════════════════════════════════════════════╝"
   echo ""
 
@@ -121,8 +121,16 @@ cmd_wifi_disconnect() {
 cmd_wifi_power() {
   local state="${1:-toggle}"
   
-  if [ -d /sys/class/net/wl*/power_save ]; then
-    for iface in /sys/class/net/wl*/power_save; do
+  # Resolve the glob first: `[ -d /sys/class/net/wl*/power_save ]` is a literal
+  # test inside [ ] and is therefore always false. Collect every wireless
+  # interface so all of them get set, not just the first.
+  local wifi_ctls=()
+  local c
+  for c in /sys/class/net/wl*/power_save; do
+    [ -f "$c" ] && wifi_ctls+=("$c")
+  done
+  if [ "${#wifi_ctls[@]}" -gt 0 ]; then
+    for iface in "${wifi_ctls[@]}"; do
       if [ "$state" = "toggle" ]; then
         local current
         current=$(cat "$iface" 2>/dev/null || echo "0")

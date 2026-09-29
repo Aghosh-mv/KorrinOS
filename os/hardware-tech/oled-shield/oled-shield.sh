@@ -414,7 +414,7 @@ PYEOF
 # ── Dashboard ────────────────────────────────────────────────────────────
 dashboard(){
   echo "╔══════════════════════════════════════════════════════════╗"
-  echo "║       KorrinOS OLED BURN-IN SHIELD                    ║"
+  echo "║               KorrinOS OLED BURN-IN SHIELD               ║"
   echo "╠══════════════════════════════════════════════════════════╣"
   echo "║  Sub-pixel voltage wear balancing                      ║"
   echo "║  Tracks usage, applies inverted masks on idle          ║"

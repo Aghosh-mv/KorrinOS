@@ -10,7 +10,7 @@ mkdir -p "$DASH_DIR"
 # System health overview
 cmd_health() {
   echo "╔══════════════════════════════════════════════╗"
-  echo "║        KorrinOS System Health Dashboard      ║"
+  echo "║             KorrinOS System Health Dashboard             ║"
   echo "╚══════════════════════════════════════════════╝"
   echo ""
 

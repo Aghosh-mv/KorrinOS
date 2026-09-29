@@ -405,7 +405,7 @@ PYEOF
 # Dashboard - the financial overview
 dashboard(){
   echo "╔══════════════════════════════════════════════════════════╗"
-  echo "║        KorrinOS SUBSCRIPTION AUDIT DASHBOARD          ║"
+  echo "║          KorrinOS SUBSCRIPTION AUDIT DASHBOARD           ║"
   echo "╚══════════════════════════════════════════════════════════╝"
   echo ""
   python3 - << 'PYEOF'

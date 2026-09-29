@@ -15,13 +15,13 @@ init_hotkeys() {
   "enabled": false,
   "bindings": {
     "Super+1": "firefox",
-    "Super+2": "kitty || xterm",
+    "Super+2": "kcommand",
     "Super+3": "nautilus || thunar",
     "Super+Space": "korrinos-quick-launcher",
     "Super+L": "loginctl lock-session",
     "Super+Q": "loginctl kill-user $USER",
     "Print": "korrinos-tools.sh screenshot",
-    "Ctrl+Alt+T": "kitty || xterm"
+    "Ctrl+Alt+T": "kcommand"
   }
 }
 DEFAULTS

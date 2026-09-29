@@ -17,7 +17,7 @@ DESKTOPS_STATE="/tmp/tinker-desktops-state"
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║            TINKEROS VIRTUAL DESKTOP MANAGER             ║${NC}"
+    echo -e "${BLUE}║             KORRINOS VIRTUAL DESKTOP MANAGER             ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -366,7 +366,7 @@ case "$1" in
             echo "Please specify desktop number"
             exit 1
         fi
-        local window_id=$(xdotool getactivewindow 2>/dev/null)
+        window_id=$(xdotool getactivewindow 2>/dev/null)
         move_to_desktop $window_id $2
         echo -e "${GREEN}Window moved to desktop $2${NC}"
         ;;

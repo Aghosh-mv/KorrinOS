@@ -2,7 +2,7 @@
 # ===========================================================================
 #  parc-ai.sh — KorrinOS Tinkeria ASSISTANT CLI backend
 # ---------------------------------------------------------------------------
-#  Backend for the Tinker AI glassmorphism GUI. Searches local context
+#  Backend for the VOKK v4 glassmorphism GUI. Searches local context
 #  (Searchie index, filesystem, command history) and returns structured
 #  HTML card responses for rendering in the GUI.
 #
@@ -640,7 +640,7 @@ print(text)
 
 cmd_help() {
   cat <<'EOF'
-Tinker AI — your productivity assistant
+VOKK v4 — your productivity assistant
 
 USAGE
   parc-ai <command> [args...]
@@ -875,13 +875,59 @@ cmd_status() {
   last_query=$(tail -1 "$AI_LOG" 2>/dev/null || echo "none")
 
   cat <<EOF
-Tinker AI Status
+VOKK v4 Status
   subsystem:    ${subsystem}
   connections:  ${connections:-none}
   last activity: ${last_query}
   config dir:   ${AI_CONFIG}
   log:          ${AI_LOG}
 EOF
+}
+
+# ---------------------------------------------------------------------------
+#  internal helpers
+#
+#  These MUST be defined before the dispatch case below: bash executes a script
+#  top-to-bottom, so a case branch that runs before the function definition was
+#  reached fails with "command not found".
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  internal helpers (called by dispatch above)
+# ---------------------------------------------------------------------------
+cmd_remind() {
+  local msg="$1"
+  local when="$2"
+  local id
+  id="r_$(date +%s)_$$"
+  local dir="${TINKER_AI_HOME:-$HOME/.config/vokk}/reminders"
+  mkdir -p "$dir"
+  cat > "$dir/$id.json" <<EOJSON
+{"id":"$id","message":"$msg","when":"$when","created":"$(date -Iseconds)","status":"pending"}
+EOJSON
+  echo "Reminder set: $msg — $when"
+}
+
+cmd_reminders() {
+  local dir="${TINKER_AI_HOME:-$HOME/.config/vokk}/reminders"
+  mkdir -p "$dir"
+  echo "=== Pending Reminders ==="
+  local found=0
+  for f in "$dir"/*.json; do
+    [ -f "$f" ] || continue
+    local msg when status
+    msg=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['message'])" "$f" 2>/dev/null)
+    when=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['when'])" "$f" 2>/dev/null)
+    status=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['status'])" "$f" 2>/dev/null)
+    [ "$status" = "pending" ] || continue
+    echo "  • $msg — $when"
+    found=1
+  done
+  [ "$found" -eq 0 ] && echo "  (none)"
+}
+
+cmd_draft() {
+  local topic="$1"
+  ai_text_generate "$topic" email
 }
 
 # ---------------------------------------------------------------------------
@@ -1691,43 +1737,4 @@ case "${1:-help}" in
   # --- help ---
   help|*)        cmd_help ;;
 esac
-
-# ---------------------------------------------------------------------------
-#  internal helpers (called by dispatch above)
-# ---------------------------------------------------------------------------
-cmd_remind() {
-  local msg="$1"
-  local when="$2"
-  local id
-  id="r_$(date +%s)_$$"
-  local dir="${TINKER_AI_HOME:-$HOME/.config/vokk}/reminders"
-  mkdir -p "$dir"
-  cat > "$dir/$id.json" <<EOJSON
-{"id":"$id","message":"$msg","when":"$when","created":"$(date -Iseconds)","status":"pending"}
-EOJSON
-  echo "Reminder set: $msg — $when"
-}
-
-cmd_reminders() {
-  local dir="${TINKER_AI_HOME:-$HOME/.config/vokk}/reminders"
-  mkdir -p "$dir"
-  echo "=== Pending Reminders ==="
-  local found=0
-  for f in "$dir"/*.json; do
-    [ -f "$f" ] || continue
-    local msg when status
-    msg=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['message'])" "$f" 2>/dev/null)
-    when=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['when'])" "$f" 2>/dev/null)
-    status=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['status'])" "$f" 2>/dev/null)
-    [ "$status" = "pending" ] || continue
-    echo "  • $msg — $when"
-    found=1
-  done
-  [ "$found" -eq 0 ] && echo "  (none)"
-}
-
-cmd_draft() {
-  local topic="$1"
-  ai_text_generate "$topic" email
-}
 

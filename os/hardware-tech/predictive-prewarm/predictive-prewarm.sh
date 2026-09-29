@@ -288,7 +288,7 @@ app_to_bin = {
     "firefox": "firefox", "Firefox": "firefox",
     "chromium": "chromium", "Chrome": "google-chrome",
     "code": "code", "Code": "code", "VSCode": "code",
-    "terminal": "gnome-terminal", "Terminal": "gnome-terminal", "konsole": "konsole",
+    "terminal": "kcommand", "Terminal": "kcommand", "konsole": "konsole",
     "spotify": "spotify", "vlc": "vlc", "mpv": "mpv",
     "discord": "discord", "slack": "slack", "telegram": "telegram-desktop",
     "libreoffice": "libreoffice", "gimp": "gimp", "blender": "blender"

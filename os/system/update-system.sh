@@ -19,7 +19,7 @@ UPDATE_LOG="/var/log/tinker/update.log"
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║                  TINKEROS UPDATE SYSTEM                 ║${NC}"
+    echo -e "${BLUE}║                  KORRINOS UPDATE SYSTEM                  ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }

@@ -41,7 +41,7 @@ NC='\033[0m' # No Color
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║                   TINKEROS APP STORE                   ║${NC}"
+    echo -e "${BLUE}║                    KORRINOS APP STORE                    ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }

@@ -21,7 +21,8 @@ import {
   Table as TableIcon,
   ChevronDown,
   Play,
-  Plus
+  Plus,
+  Check
 } from 'lucide-react';
 import { Note, AutomationRule } from '../types';
 import { calculateTextMetrics, formatMarkdown } from '../utils/automations';
@@ -194,7 +195,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
               isChecked ? 'bg-amber-500 border-amber-600 text-stone-950 font-bold text-[10px]' : 'border-stone-600 bg-stone-900'
             }`}>
-              {isChecked ? '✓' : ''}
+              {isChecked ? <Check className="w-3 h-3" aria-hidden="true" /> : null}
             </span>
             <span className={isChecked ? 'line-through text-stone-500' : 'text-stone-300'}>{taskText}</span>
           </div>

@@ -17,7 +17,7 @@ POWER_STATE="/tmp/tinker-power-state"
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║              TINKEROS POWER MANAGER                     ║${NC}"
+    echo -e "${BLUE}║                  KORRINOS POWER MANAGER                  ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -279,9 +279,14 @@ optimize_battery_health() {
         charge_stop=${charge_stop:-100}
         
         # Set charge thresholds (if supported)
-        if [ -d /sys/class/power_supply/BAT*/charge_control_start_threshold ]; then
-            echo $charge_start | sudo tee /sys/class/power_supply/BAT*/charge_control_start_threshold
-            echo $charge_stop | sudo tee /sys/class/power_supply/BAT*/charge_control_end_threshold
+        # NOTE: `[ -d /path/BAT*/charge_control_start_threshold ]` never matches,
+        # because the glob is not expanded inside [ ]. Resolve it first.
+        local start_thresh
+        start_thresh=$(ls -1d /sys/class/power_supply/BAT*/charge_control_start_threshold 2>/dev/null | head -1)
+        if [ -n "$start_thresh" ] && [ -d "$start_thresh" ]; then
+            local batdir="${start_thresh%/charge_control_start_threshold}"
+            echo $charge_start | sudo tee "$batdir/charge_control_start_threshold"
+            echo $charge_stop  | sudo tee "$batdir/charge_control_end_threshold"
             echo -e "${GREEN} Battery charge thresholds set: $charge_start% - $charge_stop%${NC}"
         else
             echo -e "${YELLOW}Charge threshold control not available for this hardware${NC}"

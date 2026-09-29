@@ -102,8 +102,10 @@ ve_adapt_tune() {
 
   # apply deltas to weights file
   local wfile="$VIBE_STATE/weights"
-  local wstr; wstr=$(ve_rank_weights)
-  eval "$wstr" 2>/dev/null || true
+  # Use the validating loader, not `eval "$(ve_rank_weights)"`: the weights file
+  # is data, and evaluating it meant anything able to write that file got code
+  # execution inside the ranking engine.
+  ve_rank_load_weights
   W3=$(( W3 + dW3 )); W5=$(( W5 + dW5 ))
   # clamp to sane ranges
   [ "$W3" -lt 5  ] && W3=5;  [ "$W3" -gt 50 ] && W3=50

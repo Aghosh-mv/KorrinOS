@@ -1,5 +1,5 @@
 /*
- * TinkerOS Fan Control - capability-probing PWM/tach backend
+ * KorrinOS Fan Control - capability-probing PWM/tach backend
  * Drives fan speed via:
  *   - hwmon sysfs pwmX (with manual/auto enable)
  *   - ThinkPad ACPI (/proc/acpi/ibm/fan) fallback
@@ -55,7 +55,7 @@ static void find_pwms(char pwms[][64], int *npwm) {
 int main(int argc, char **argv) {
     if (argc < 2) {
         fprintf(stderr,
-          "TinkerOS fan_control v1.0\n"
+          "KorrinOS fan_control v1.0\n"
           "Usage:\n"
           "  fan_control probe                      - list fans/capabilities\n"
           "  fan_control set <pct>                  - set speed 0-100 (manual)\n"

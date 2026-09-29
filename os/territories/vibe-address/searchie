@@ -1,6 +1,6 @@
 #!/bin/bash
 # ===========================================================================
-#  searchie — TinkerOS memory overlay launcher
+#  searchie — KorrinOS memory overlay launcher
 # ---------------------------------------------------------------------------
 #  Opens the Searchie glass panel (Tab+F7 on the desktop).  If the Qt
 #  runtime is unavailable it still answers from the terminal so Searchie

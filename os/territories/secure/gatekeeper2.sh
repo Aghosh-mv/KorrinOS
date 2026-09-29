@@ -23,8 +23,29 @@ trust_bin() {  # trust_bin <path-or-cmd>
 
 is_trusted() {  # is_trusted <path> -> 0 yes / 1 no
   local p="$1"; local h; h="$(sha256_of "$p")"
-  grep -qE "^$h[[:space:]]+$p$" "$TRUST" 2>/dev/null && return 0
-  return 1
+  # Compare the hash and the path as EXACT FIELDS rather than building a regex.
+  # The old code interpolated the path straight into an ERE, so any regex
+  # metacharacter in a path -- extremely common: '.', '+', '(', '[' -- was
+  # interpreted as a pattern. Concretely, a trusted binary whose path contains
+  # "[" made grep abort with "Unmatched [" and the binary was silently rejected.
+  # It also made the linter read "$h[[:space:]]" as an array subscript (SC1087).
+  # Trust file format is:  <sha256><two spaces><path>
+  [ -f "$TRUST" ] || return 1
+  awk -v want_h="$h" -v want_p="$p" '
+    {
+      line = $0
+      sub(/[ \t]+$/, "", line)
+      # strip exactly the leading hash field and its trailing whitespace
+      if (line !~ /^[ \t]*[^ \t]+[ \t]+/) next
+      hh = line
+      sub(/^[ \t]*/, "", hh)
+      sub(/[ \t]+.*$/, "", hh)
+      pp = line
+      sub(/^[^ \t]+[ \t]+/, "", pp)
+      if (hh == want_h && pp == want_p) { found = 1; exit }
+    }
+    END { exit(found ? 0 : 1) }
+  ' "$TRUST"
 }
 
 gate() {  # gate <path-or-cmd> [args...]

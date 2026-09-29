@@ -40,18 +40,21 @@ cmd_add() {
   local created
   created=$(date -Iseconds)
   
+  export ID="${id:-}" NAME="${name:-}" COMMAND="${command:-}" \
+         SCHEDULE="${schedule:-}" TIME="${time:-}" CREATED="${created:-}" \
+         NOW_ISO="$(date -Iseconds)"
   python3 -c "
-import json
+import json, os
 with open('$SCHEDULE_TASKS') as f:
     tasks = json.load(f)
 
 task = {
-    'id': '$id',
-    'name': '$name',
-    'command': '$command',
-    'schedule': '$schedule',
-    'time': '$time',
-    'created': '$created',
+    'id': os.environ['ID'],
+    'name': os.environ['NAME'],
+    'command': os.environ['COMMAND'],
+    'schedule': os.environ['SCHEDULE'],
+    'time': os.environ['TIME'],
+    'created': os.environ['CREATED'],
     'enabled': True,
     'last_run': None,
     'next_run': None,
@@ -62,15 +65,15 @@ task = {
 # Calculate next run time
 from datetime import datetime, timedelta
 now = datetime.now()
-if '$schedule' == 'once':
-    task['next_run'] = '$time'
-elif '$schedule' == 'hourly':
+if os.environ['SCHEDULE'] == 'once':
+    task['next_run'] = os.environ['TIME']
+elif os.environ['SCHEDULE'] == 'hourly':
     task['next_run'] = (now + timedelta(hours=1)).isoformat()
-elif '$schedule' == 'daily':
+elif os.environ['SCHEDULE'] == 'daily':
     task['next_run'] = (now + timedelta(days=1)).isoformat()
-elif '$schedule' == 'weekly':
+elif os.environ['SCHEDULE'] == 'weekly':
     task['next_run'] = (now + timedelta(weeks=1)).isoformat()
-elif '$schedule' == 'monthly':
+elif os.environ['SCHEDULE'] == 'monthly':
     task['next_run'] = (now + timedelta(days=30)).isoformat()
 
 tasks.append(task)
@@ -105,7 +108,7 @@ cmd_list() {
   echo ""
   
   python3 -c "
-import json
+import json, os
 with open('$SCHEDULE_TASKS') as f:
     tasks = json.load(f)
 
@@ -113,15 +116,24 @@ if not tasks:
     print('  No scheduled tasks')
 else:
     for t in tasks:
-        status = '' if t.get('enabled') else ''
+        # next_run is None until the task has been scheduled, so it must be
+        # coerced before slicing. The old code did t.get('next_run','N/A')[:19]
+        # which raised TypeError on None, and because stderr was discarded the
+        # 'list' command printed nothing at all.
+        nr = t.get('next_run') or 'N/A'
+        if not isinstance(nr, str):
+            nr = str(nr)
+        nr = nr[:19]
+        # the enabled marker used to be '' in BOTH branches, so a disabled task
+        # looked identical to an enabled one
+        status = '[on] ' if t.get('enabled', True) else '[off]'
         name = t.get('name', 'unnamed')
         schedule = t.get('schedule', 'once')
-        next_run = t.get('next_run', 'N/A')[:19]
-        runs = t.get('run_count', 0)
-        print(f'  {status} {name}')
+        runs = t.get('run_count', 0) or 0
+        print(f'  {status}{name}')
         print(f'    Schedule: {schedule} | Runs: {runs}')
-        print(f'    Next: {next_run}')
-        print(f'    Command: {t.get(\"command\", \"\")[:60]}')
+        print(f'    Next: {nr}')
+        print(f'    Command: {(t.get(\"command\") or \"\")[:60]}')
         print()
 " 2>/dev/null
 }
@@ -130,13 +142,14 @@ else:
 cmd_run() {
   local task_id="$1"
   
+  export TASK_ID="${task_id:-}" NOW_ISO="$(date -Iseconds)"
   python3 -c "
-import json
+import json, os
 with open('$SCHEDULE_TASKS') as f:
     tasks = json.load(f)
 
 for t in tasks:
-    if t['id'] == '$task_id':
+    if t['id'] == os.environ['TASK_ID']:
         print(f'Running: {t[\"name\"]}')
         print(f'Command: {t[\"command\"]}')
         t['last_run'] = '$(date -Iseconds)'
@@ -151,11 +164,11 @@ with open('$SCHEDULE_TASKS', 'w') as f:
   # Execute the command
   local command
   command=$(python3 -c "
-import json
+import json, os
 with open('$SCHEDULE_TASKS') as f:
     tasks = json.load(f)
 for t in tasks:
-    if t['id'] == '$task_id':
+    if t['id'] == os.environ['TASK_ID']:
         print(t['command'])
         break
 " 2>/dev/null)
@@ -166,11 +179,11 @@ for t in tasks:
     
     # Update status
     python3 -c "
-import json
+import json, os
 with open('$SCHEDULE_TASKS') as f:
     tasks = json.load(f)
 for t in tasks:
-    if t['id'] == '$task_id':
+    if t['id'] == os.environ['TASK_ID']:
         t['status'] = 'completed'
         break
 with open('$SCHEDULE_TASKS', 'w') as f:
@@ -186,12 +199,13 @@ with open('$SCHEDULE_TASKS', 'w') as f:
 cmd_delete() {
   local task_id="$1"
   
+  export TASK_ID="${task_id:-}"
   python3 -c "
-import json
+import json, os
 with open('$SCHEDULE_TASKS') as f:
     tasks = json.load(f)
 
-tasks = [t for t in tasks if t['id'] != '$task_id']
+tasks = [t for t in tasks if t['id'] != os.environ['TASK_ID']]
 
 with open('$SCHEDULE_TASKS', 'w') as f:
     json.dump(tasks, f, indent=2)
@@ -204,13 +218,14 @@ print(f'Deleted task: $task_id')
 cmd_toggle() {
   local task_id="$1"
   
+  export TASK_ID="${task_id:-}"
   python3 -c "
-import json
+import json, os
 with open('$SCHEDULE_TASKS') as f:
     tasks = json.load(f)
 
 for t in tasks:
-    if t['id'] == '$task_id':
+    if t['id'] == os.environ['TASK_ID']:
         t['enabled'] = not t.get('enabled', True)
         status = 'enabled' if t['enabled'] else 'disabled'
         print(f'Task {t[\"name\"]}: {status}')
@@ -229,15 +244,17 @@ cmd_remind() {
   local id
   id="remind_$(date +%s)_$$"
   
+  export TASK_ID="${id:-}" MESSAGE="${message:-}" TIME="${time:-}" \
+         NOW_ISO="$(date -Iseconds)"
   python3 -c "
-import json
+import json, os
 from datetime import datetime, timedelta
 
 with open('$SCHEDULE_TASKS') as f:
     tasks = json.load(f)
 
 # Parse time offset
-time_str = '$time'
+time_str = os.environ['TIME']
 if time_str.endswith('m'):
     minutes = int(time_str[:-1])
     next_run = (datetime.now() + timedelta(minutes=minutes)).isoformat()
@@ -251,7 +268,7 @@ else:
     next_run = time_str
 
 task = {
-    'id': '$id',
+    'id': os.environ['ID'],
     'name': 'Reminder: $message',
     'command': 'echo \"Reminder: $message\" | xmessage -file -',
     'schedule': 'once',

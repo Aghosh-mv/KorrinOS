@@ -13,7 +13,7 @@ init_commands() {
     if [ ! -f "$COMMANDS_FILE" ]; then
         cat > "$COMMANDS_FILE" << 'EOF'
 Settings:settings-gui.sh
-Terminal:xdg-open xterm
+Terminal:xdg-open kcommand
 File Manager:thunar
 Screenshot:screenshot-tool.sh
 System Monitor:gnome-system-monitor

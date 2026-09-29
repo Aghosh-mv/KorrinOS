@@ -1,5 +1,5 @@
 /*
- * TinkerOS MSR Control - capability-probing voltage/frequency backend
+ * KorrinOS MSR Control - capability-probing voltage/frequency backend
  * Reads/writes IA32_PERF_CTL / IA32_VOLTAGE MSRs with:
  *   - capability probing (CPU vendor, MSR existence)
  *   - safe fallback to sysfs scaling_setspeed
@@ -18,15 +18,18 @@
 #include <limits.h>
 #include <sys/ioctl.h>
 
-/* Self-contained MSR ioctl definitions (no kernel header dependency) */
-#define _IOW(a,b,t)  ((t)(((1)<<30)|((('a'))<<8)|((b)<<0)|(sizeof(long)*8)))
-#define _IOR(a,b,t)  ((t)(((2)<<30)|((('a'))<<8)|((b)<<0)|(sizeof(long)*8)))
+/* MSR ioctl numbers. <sys/ioctl.h> above already provides the canonical
+ * _IOW/_IOR encoders, so we must NOT redefine them by hand: doing so both
+ * clashes with the system header and, because the hand-rolled macros used
+ * sizeof(long)*8 for the size field, produced dir=3/size=0 numbers that the
+ * kernel driver never matches (every call would fail with ENOTTY).
+ * Derive the values from the real struct layout instead. */
 struct msr_info {
     uint32_t msr_no;
     struct { uint32_t eax, edx; } regs;
 };
-#define RDMSR 0xc0006302 /* _IOW('c', 2, struct msr_info) */
-#define WRMSR 0xc0006301 /* _IOW('c', 1, struct msr_info) */
+#define RDMSR _IOW('c', 2, struct msr_info) /* write: pass msr_no, read eax/edx */
+#define WRMSR _IOR('c', 1, struct msr_info) /* read:  fetch msr_no, supply eax/edx */
 
 #define IA32_PERF_STATUS 0x198
 #define IA32_PERF_CTL   0x199
@@ -108,7 +111,7 @@ static int sysfs_set_freq_mhz(int target_mhz) {
 
 static void print_usage(void) {
     fprintf(stderr,
-        "TinkerOS msr_control v1.0 - capability-probing MSR backend\n"
+        "KorrinOS msr_control v1.0 - capability-probing MSR backend\n"
         "Usage:\n"
         "  msr_control probe              - probe CPU vendor + MSR availability\n"
         "  msr_control read <msr_hex>     - read MSR (e.g. 0x198)\n"
@@ -156,6 +159,7 @@ int main(int argc, char **argv) {
         uint64_t status = rdmsr(fd, IA32_PERF_STATUS, &ok);
         uint64_t ctl = rdmsr(fd, IA32_PERF_CTL, &ok);
         uint64_t tmp = rdmsr(fd, 0x198, &ok);
+        (void)tmp; /* value unused; the read itself is what sets 'ok' */
         printf("msr=/dev/cpu/0/msr\nmsr_access=GRANTED\n");
         printf("perf_status=0x%llx\n", (unsigned long long)status);
         printf("perf_ctl=0x%llx\n", (unsigned long long)ctl);
@@ -254,6 +258,7 @@ int main(int argc, char **argv) {
             if (cfd < 0) break;
             int ok;
             uint64_t pstate = rdmsr(cfd, 0xC0010064, &ok); /* COFVID STATUS */
+            (void)pstate; /* value unused; the read itself is what sets 'ok' */
             if (ok) {
                 /* COFVID ctl register 0xC0010062 */
                 uint64_t cur = rdmsr(cfd, 0xC0010062, &ok);

@@ -827,6 +827,37 @@ stage_kcommand() {
 [ -r /usr/share/kcommand/kcommand.bash ] && . /usr/share/kcommand/kcommand.bash
 BASHRC"
 
+  # Make kcommand the system terminal, not merely a command on PATH.
+  # x-terminal-emulator is the Debian/XFCE alternative that file managers, the
+  # panel and "Open Terminal Here" all consult, so registering here is what
+  # actually makes it the default rather than a rename.
+  "$SUDO" update-alternatives --install /usr/bin/x-terminal-emulator \
+      x-terminal-emulator /usr/bin/kcommand 60 \
+      --slave /usr/bin/xterm xterm /usr/bin/kcommand >/dev/null 2>&1 || true
+  "$SUDO" update-alternatives --set x-terminal-emulator /usr/bin/kcommand \
+      >/dev/null 2>&1 || true
+
+  # XFCE's own default-terminal preference, and the mimeapps handler used by
+  # "Open in Terminal" in file managers.
+  "$SUDO" mkdir -p "$ROOTFS/etc/xdg"
+  "$SUDO" bash -c "cat > '$ROOTFS/etc/xdg/korrinos-terminals.list'" <<'TERMLEOF'
+[Default Terminal]
+Terminal=kcommand
+TERMLEOF
+  "$SUDO" bash -c "cat > '$ROOTFS/usr/share/applications/korrinos-terminal.desktop'" <<'DESKEOF'
+[Desktop Entry]
+Type=Application
+Name=Terminal
+GenericName=Terminal
+Comment=KorrinOS terminal
+Exec=kcommand
+Icon=utilities-terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+Keywords=shell;prompt;command;commandline;
+DESKEOF
+  echo "  registered kcommand as the system terminal (x-terminal-emulator)"
+
   # The 55-language registry the typography layer reads at runtime.
   "$SUDO" mkdir -p "$ROOTFS/usr/share/korrinos/i18n"
   "$SUDO" cp /home/tinkerspace/linux-kernel/os/i18n/languages.tsv \

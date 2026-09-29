@@ -1,4 +1,8 @@
+#!/usr/bin/env bash
 # veil: align.sh — model-integrity auditor.
+#
+# LIBRARY: this file defines functions only and is meant to be sourced
+# (`. core/align.sh`), not executed. It is executable purely for convenience.
 #   ve_align_check             compare each persistent artifact against the
 #                               event store; print OK/DRIFT per artifact.
 #   ve_align_fix               wipe + rebuild any drifted artifact from logs.

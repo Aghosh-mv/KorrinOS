@@ -587,7 +587,7 @@ monitor(){
   while true; do
     clear
     echo "╔══════════════════════════════════════════════════════════╗"
-    echo "║     KorrinOS SILICON THERMAL MAP - LIVE               ║"
+    echo "║           KorrinOS SILICON THERMAL MAP - LIVE            ║"
     echo "║     $(date '+%Y-%m-%d %H:%M:%S')                                  ║"
     echo "╚══════════════════════════════════════════════════════════╝"
     echo ""
@@ -601,7 +601,7 @@ monitor(){
 # ── Dashboard ───────────────────────────────────────────────────────────
 dashboard(){
   echo "╔══════════════════════════════════════════════════════════╗"
-  echo "║   KorrinOS SILICON THERMAL MAPPING SCHEDULER          ║"
+  echo "║        KorrinOS SILICON THERMAL MAPPING SCHEDULER        ║"
   echo "╠══════════════════════════════════════════════════════════╣"
   echo "║  Reads thermal sensors 1000x/sec                       ║"
   echo "║  Builds live heat map of silicon die                   ║"

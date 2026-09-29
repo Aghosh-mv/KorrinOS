@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Command mapping
 declare -A COMMANDS=(
     ["open_browser"]="xdg-open https://www.google.com &"
-    ["open_terminal"]="gnome-terminal &"
+    ["open_terminal"]="kcommand &"
     ["open_files"]="xdg-open ~ &"
     ["screenshot"]="import -window root ~/Pictures/screenshot-\$(date +%s).png"
     ["lock_screen"]="i3lock -c 2e3440"

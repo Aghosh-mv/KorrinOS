@@ -1,5 +1,5 @@
 /*
- * TinkerOS Display Control - capability-probing backlight/DPMS backend
+ * KorrinOS Display Control - capability-probing backlight/DPMS backend
  * For oled-shield (wear compensation), adaptive-display, fpga-scaler.
  * Operates real display interfaces:
  *  - backlight via /sys/class/backlight brightness (with max scaling)
@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
     }
     if (argi >= argc) {
         fprintf(stderr,
-          "TinkerOS display_control v1.0\n"
+          "KorrinOS display_control v1.0\n"
           "Usage:\n"
           "  display_control probe                 - show backlights/DPMS capability\n"
           "  display_control brightness <0-100>    - set brightness percent (safe)\n"

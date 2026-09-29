@@ -11,7 +11,7 @@ mkdir -p "$CLEANUP_DIR"
 # Full system cleanup
 cmd_full() {
   echo "╔══════════════════════════════════════════════╗"
-  echo "║     KorrinOS System Cleanup & Optimization   ║"
+  echo "║          KorrinOS System Cleanup & Optimization          ║"
   echo "╚══════════════════════════════════════════════╝"
   echo ""
   

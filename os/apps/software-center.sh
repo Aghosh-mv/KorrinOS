@@ -46,7 +46,7 @@ APP_LIST=(
 show_main() {
     clear
     echo "╔══════════════════════════════════════════════════════════╗"
-    echo "║              TINKEROS SOFTWARE CENTER                    ║"
+    echo "║              KORRINOS SOFTWARE CENTER                    ║"
     echo "╚══════════════════════════════════════════════════════════╝"
     echo ""
     echo "  1)  Browse by Category"

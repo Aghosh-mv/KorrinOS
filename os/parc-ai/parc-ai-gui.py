@@ -152,7 +152,7 @@ class Engine(QObject):
 
     def _empty_response(self, query: str) -> str:
         return (
-            '<div class="card"><div class="card-title">Tinker AI</div>'
+            '<div class="card"><div class="card-title">VOKK v4</div>'
             f'<div class="card-body">I searched for "{query}" but found no results. '
             'Try a different search or check your connections.</div></div>'
         )
@@ -439,7 +439,7 @@ def main():
         return 0
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Tinker AI")
+    app.setApplicationName("VOKK v4")
     app.setOrganizationName("KorrinOS")
 
     w = TinkeriaWindow()

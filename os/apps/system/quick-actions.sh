@@ -19,7 +19,7 @@ bluetooth-toggle:bluetoothctl power toggle:bluetooth
 night-mode:night-mode.sh toggle:night-light
 dnd-toggle:notification-center.sh dnd:preferences-system-notifications
 screenshot:screenshot-tool.sh full:camera-photo
-terminal:xdg-open xterm:utilities-terminal
+terminal:xdg-open kcommand:utilities-terminal
 file-manager:thunar:system-file-manager
 settings:gnome-control-center:preferences-system
 lock:xdg-screensaver lock:system-lock-screen

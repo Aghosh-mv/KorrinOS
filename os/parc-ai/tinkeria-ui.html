@@ -48,7 +48,7 @@ body{
   background:var(--bg-100);
   color:var(--text-100);
   -webkit-font-smoothing:antialiased;
-  font-size:16px; line-height:1.5;
+  font-size:1rem; line-height:1.5;
 }
 
 /* ============ App shell ============ */
@@ -68,7 +68,7 @@ body{
 }
 .wordmark{
   font-family:var(--font-serif);
-  font-size:18px; font-weight:600; letter-spacing:-0.01em;
+  font-size:1.125rem; font-weight:600; letter-spacing:-0.01em;
   flex:1;
 }
 .icon-btn{
@@ -85,7 +85,7 @@ body{
   display:flex; align-items:center; gap:8px;
   width:100%; height:32px; padding:0 10px;
   border-radius:9px; border:none; background:transparent;
-  font-family:var(--font-sans); font-size:13px; font-weight:550;
+  font-family:var(--font-sans); font-size:0.8125rem; font-weight:550;
   color:var(--text-100); cursor:pointer; margin-bottom:6px;
   transition:background .15s;
 }
@@ -95,14 +95,14 @@ body{
 /* Nav groups */
 .nav-group{ padding:6px 0; }
 .nav-label{
-  font-size:12px; font-weight:550; color:var(--text-400);
+  font-size:0.75rem; font-weight:550; color:var(--text-400);
   padding:6px 12px 4px;
 }
 .nav-item{
   display:flex; align-items:center; gap:10px;
   width:100%; height:32px; padding:0 12px;
   border-radius:9px; border:none; background:transparent;
-  font-family:var(--font-sans); font-size:13px; color:var(--text-300);
+  font-family:var(--font-sans); font-size:0.8125rem; color:var(--text-300);
   cursor:pointer; transition:background .15s,color .15s;
 }
 .nav-item:hover{ background:var(--bg-300); color:var(--text-100); }
@@ -118,7 +118,7 @@ body{
 }
 .recents-group-head button{
   border:none;background:transparent;cursor:pointer;
-  font-size:12px;color:var(--text-400);
+  font-size:0.75rem;color:var(--text-400);
   display:flex;align-items:center;gap:2px;
 }
 .recents-group-head button:hover{ color:var(--text-100); }
@@ -126,13 +126,13 @@ body{
   display:flex; align-items:center; gap:10px;
   width:100%; height:32px; padding:0 12px;
   border-radius:9px; border:none; background:transparent;
-  font-family:var(--font-sans); font-size:13px; color:var(--text-300);
+  font-family:var(--font-sans); font-size:0.8125rem; color:var(--text-300);
   cursor:pointer; white-space:nowrap; overflow:hidden;
   transition:background .15s;
 }
 .conv:hover{ background:var(--bg-300); color:var(--text-100); }
 .conv .conv-name{ overflow:hidden; text-overflow:ellipsis; flex:1; }
-.conv .time{ font-size:11px; color:var(--text-400); flex-shrink:0; }
+.conv .time{ font-size:0.6875rem; color:var(--text-400); flex-shrink:0; }
 
 /* Sidebar footer / account */
 .sidebar-bottom{ margin-top:auto; padding:8px 0 10px; }
@@ -148,11 +148,11 @@ body{
   width:24px; height:24px; border-radius:50%;
   background:var(--clay); color:#fff;
   display:flex;align-items:center;justify-content:center;
-  font-size:11px; font-weight:600;
+  font-size:0.6875rem; font-weight:600;
 }
 .account-text{ flex:1; text-align:left; min-width:0; }
-.account-name{ font-size:13px; font-weight:550; color:var(--text-100); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.account-sub{ font-size:11px; color:var(--text-400); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.account-name{ font-size:0.8125rem; font-weight:550; color:var(--text-100); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.account-sub{ font-size:0.6875rem; color:var(--text-400); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .account-btn .chevron{ color:var(--text-400); }
 
 /* ============ Main column ============ */
@@ -174,7 +174,7 @@ body{
   border:0.5px solid hsl(30 3% 12% / 15%);
   background:var(--bg-000);
   color:var(--text-300);
-  font-size:13px; font-weight:500; cursor:pointer;
+  font-size:0.8125rem; font-weight:500; cursor:pointer;
   box-shadow:0 2px 8px hsl(0 0% 0% / 6%);
   transition:background .15s;
 }
@@ -186,7 +186,7 @@ body{
 .spark{ width:44px; height:44px; color:var(--clay); margin-bottom:18px; }
 .greeting{
   font-family:var(--font-serif);
-  font-size:32px; font-weight:500; letter-spacing:-0.02em;
+  font-size:2rem; font-weight:500; letter-spacing:-0.02em;
   text-align:center;
 }
 .greeting em{ font-style:italic; }
@@ -197,7 +197,7 @@ body{
   border-radius:8px;
   border:1px solid hsl(30 3% 12% / 10%);
   background:var(--bg-000);
-  font-size:14px; color:var(--text-300); cursor:pointer;
+  font-size:0.875rem; color:var(--text-300); cursor:pointer;
   transition:background .15s,border-color .15s,color .15s;
 }
 .chip:hover{ background:var(--bg-300); color:var(--text-100); }
@@ -214,7 +214,7 @@ body{
   background:var(--bg-300);
   border-radius:12px;
   padding:10px 16px;
-  font-size:16px; line-height:1.5;
+  font-size:1rem; line-height:1.5;
   color:var(--text-100);
 }
 .msg-actions{ display:flex; gap:4px; opacity:0; transition:opacity .15s; }
@@ -230,14 +230,14 @@ body{
 .msg-ai{ max-width:100%; }
 .ai-body{
   font-family:var(--font-serif);
-  font-size:16px; line-height:1.65; color:var(--text-100);
+  font-size:1rem; line-height:1.65; color:var(--text-100);
 }
 .ai-body p{ margin:0 0 14px; }
 .ai-body p:last-child{ margin-bottom:0; }
 .ai-body strong{ font-weight:600; }
 .ai-body h3{
   font-family:var(--font-serif);
-  font-size:20px; font-weight:600; line-height:1.4; margin:16px 0 10px;
+  font-size:1.25rem; font-weight:600; line-height:1.4; margin:16px 0 10px;
 }
 .ai-body ul{ margin:0 0 14px; padding-left:24px; }
 .ai-body li{ margin:4px 0; }
@@ -248,7 +248,7 @@ body{
 pre{
   background:#282c34; color:#abb2bf;
   border-radius:8px; padding:14px 16px;
-  overflow-x:auto; font-size:13px; line-height:1.6;
+  overflow-x:auto; font-size:0.8125rem; line-height:1.6;
   margin:12px 0 16px;
 }
 pre code{ font-family:var(--font-mono); }
@@ -286,7 +286,7 @@ pre code{ font-family:var(--font-mono); }
 }
 .composer-input{
   border:none; outline:none; resize:none;
-  font-family:var(--font-sans); font-size:16px; line-height:1.5;
+  font-family:var(--font-sans); font-size:1rem; line-height:1.5;
   color:var(--text-100); background:transparent;
   min-height:40px; max-height:200px; padding:4px 8px;
 }
@@ -309,7 +309,7 @@ pre code{ font-family:var(--font-mono); }
   display:inline-flex; align-items:center; gap:6px;
   height:32px; padding:0 8px 0 10px;
   border-radius:6px; border:none; background:transparent;
-  font-size:12px; font-weight:550; color:var(--text-300);
+  font-size:0.75rem; font-weight:550; color:var(--text-300);
   cursor:pointer; transition:background .15s;
 }
 .model-pill:hover{ background:var(--bg-300); }
@@ -343,7 +343,7 @@ pre code{ font-family:var(--font-mono); }
   display:flex; align-items:center; justify-content:space-between;
   padding:8px 10px 4px;
 }
-.pop-head span{ font-size:12px; font-weight:550; color:var(--text-400); }
+.pop-head span{ font-size:0.75rem; font-weight:550; color:var(--text-400); }
 .pop-item{
   display:flex; flex-direction:column; gap:1px;
   width:100%; padding:6px 10px;
@@ -353,12 +353,12 @@ pre code{ font-family:var(--font-mono); }
 }
 .pop-item:hover{ background:var(--bg-300); }
 .pop-item.active .pop-name{ color:var(--text-100); }
-.pop-name{ font-size:14px; font-weight:550; color:var(--text-300); display:flex; align-items:center; gap:8px; }
-.pop-desc{ font-size:12px; color:var(--text-400); }
-.pop-item.active .pop-name::after{ content:""; color:var(--clay-btn); margin-left:auto; font-size:13px; }
+.pop-name{ font-size:0.875rem; font-weight:550; color:var(--text-300); display:flex; align-items:center; gap:8px; }
+.pop-desc{ font-size:0.75rem; color:var(--text-400); }
+.pop-item.active .pop-name::after{ content:""; color:var(--clay-btn); margin-left:auto; font-size:0.8125rem; }
 .pop-divider{ height:0.5px; background:hsl(30 3% 12% / 10%); margin:4px 6px; }
-.pop-sub{ font-size:12px; font-weight:550; color:var(--text-400); padding:6px 10px 4px; }
-.pop-chev{ margin-left:auto; color:var(--text-400); font-size:11px; }
+.pop-sub{ font-size:0.75rem; font-weight:550; color:var(--text-400); padding:6px 10px 4px; }
+.pop-chev{ margin-left:auto; color:var(--text-400); font-size:0.6875rem; }
 
 /* Scrollbar */
 .chat-scroll::-webkit-scrollbar{ width:10px; }
@@ -529,7 +529,7 @@ pre code{ font-family:var(--font-mono); }
     <!-- composer -->
     <div class="composer-wrap">
       <div class="popover" id="modelPop">
-        <div class="pop-head"><span>Model</span><span style="font-size:12px;color:var(--clay-btn);font-weight:550;">VOKK v4 3B · Local</span></div>
+        <div class="pop-head"><span>Model</span><span style="font-size:0.75rem;color:var(--clay-btn);font-weight:550;">VOKK v4 3B · Local</span></div>
         <button class="pop-item">
           <span class="pop-name">VOKK v4 3B</span>
           <span class="pop-desc">Next-gen reasoning (experimental, may be unavailable)</span>

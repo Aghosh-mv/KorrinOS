@@ -90,7 +90,7 @@ cat > ~/.local/share/applications/korrinos-terminal.desktop << EOF
 Type=Application
 Name=KorrinOS Terminal
 Comment=Open KorrinOS Terminal
-Exec=xfce4-terminal
+Exec=kcommand
 Icon=utilities-terminal
 Terminal=false
 Categories=System;

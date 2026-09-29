@@ -8,9 +8,17 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "desktop": "npm run build && electron .",
-    "package": "npm run build && electron-builder --mac dir",
-    "test": "node --test tests/agent.test.mjs tests/account-service.test.mjs && node tests/v11-desktop.mjs",
-    "build:service": "npm run build && node scripts/build-service.mjs"
+    "package": "npm run package:mac",
+    "test": "tsx --test tests/agent.test.mjs && tsx tests/require-node-sqlite.mjs account-service.test.mjs && tsx tests/v11-desktop.mjs",
+    "build:service": "npm run build && node scripts/build-service.mjs",
+    "test:all": "npm test",
+    "package:mac": "npm run build && electron-builder --mac dir",
+    "package:win": "npm run build && electron-builder --win nsis",
+    "package:linux": "npm run build && electron-builder --linux AppImage",
+    "test:electron": "playwright test --config=playwright.config.ts",
+    "test:desktop": "tsx tests/desktop-smoke.mjs",
+    "test:package": "tsx tests/package-smoke.mjs",
+    "test:provider": "tsx tests/provider-boundary.mjs"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
@@ -27,7 +35,8 @@
     "electron": "^44.2.0",
     "electron-builder": "^26.0.12",
     "typescript": "~5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "tsx": "^4.19.2"
   },
   "build": {
     "appId": "life.nibra.desktop",
@@ -65,5 +74,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Aghosh-mv/nibra-betterlife.git"
+  },
+  "engines": {
+    "node": ">=22.5.0"
   }
 }

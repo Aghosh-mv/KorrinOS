@@ -113,7 +113,7 @@ create_launchers() {
   # Common apps
   local apps=(
     "nautilus;Files;system-file-manager"
-    "gnome-terminal;Terminal;utilities-terminal"
+    "kcommand;Terminal;utilities-terminal"
     "firefox;Browser;firefox"
     "gnome-settings;Settings;preferences-system"
     "rhythmbox;Music;rhythmbox"
@@ -154,7 +154,7 @@ create_custom_dock() {
 #!/usr/bin/env bash
 # KorrinOS Custom Dock — yad-based fallback
 
-ICONS=(":Files:nautilus" ":Terminal:gnome-terminal" ":Tinkeria:korrinos-vokk" ":Settings:gnome-settings" ":Music:rhythmbox" ":Browser:firefox" ":Trash:user-trash")
+ICONS=(":Files:nautilus" ":Terminal:kcommand" ":Tinkeria:korrinos-vokk" ":Settings:gnome-settings" ":Music:rhythmbox" ":Browser:firefox" ":Trash:user-trash")
 
 while true; do
   BUTTON=""
@@ -172,7 +172,7 @@ while true; do
 
   case "$CHOICE" in
     "Files") nautilus & ;;
-    "Terminal") gnome-terminal & ;;
+    "Terminal") kcommand & ;;
     "Tinkeria") korrinos ai & ;;
     "Settings") gnome-control-center & ;;
     "Music") rhythmbox & ;;

@@ -508,7 +508,7 @@ if __name__ == "__main__":
     
     if cmd == "demo":
         print("╔══════════════════════════════════════════════════════════╗")
-        print("║       KorrinOS RAY TRACED AUDIO ENGINE                ║")
+        print("║             KorrinOS RAY TRACED AUDIO ENGINE             ║")
         print("╠══════════════════════════════════════════════════════════╣")
         print("║  Geometric ray casting for realistic sound simulation  ║")
         print("╚══════════════════════════════════════════════════════════╝")

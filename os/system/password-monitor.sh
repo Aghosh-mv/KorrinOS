@@ -20,7 +20,7 @@ ACTIVE_BROWSER=""
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║            TINKEROS PASSWORD MONITOR                    ║${NC}"
+    echo -e "${BLUE}║                KORRINOS PASSWORD MONITOR                 ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }

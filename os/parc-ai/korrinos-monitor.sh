@@ -56,7 +56,7 @@ cmd_live() {
     
     # Header
     echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║                 KorrinOS System Monitor                     ║"
+    echo "║                 KorrinOS System Monitor                  ║"
     echo "║                 $(date '+%Y-%m-%d %H:%M:%S')                          ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo ""

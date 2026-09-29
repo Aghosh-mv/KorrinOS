@@ -316,7 +316,7 @@ ve_connectors_guess_app_cat() {
       echo "net:browser" ;;
     vim|nvim|nano|code|sublime-text|emacs|gedit|kate|geany|notepadqq)
       echo "dev:editor" ;;
-    gnome-terminal|konsole|xterm|alacritty|kitty|terminator|tilix|wezterm|foot)
+    kcommand|gnome-terminal|konsole|xterm|alacritty|kitty|terminator|tilix|wezterm|foot)
       echo "dev:terminal" ;;
     vlc|mpv|totem|spotify|rhythmbox|amarok|audacious|deadbeef|cmus|moc)
       echo "media:player" ;;

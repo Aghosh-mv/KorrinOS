@@ -15,7 +15,7 @@ ai_device_open() {
       echo "No browser found"
       ;;
     terminal|term|konsole|alacritty|kitty|wezterm)
-      local terms=("alacritty" "kitty" "wezterm" "konsole" "gnome-terminal")
+      local terms=("kcommand" "alacritty" "kitty" "wezterm" "konsole" "gnome-terminal")
       for t in "${terms[@]}"; do
         if command -v "$t" &>/dev/null; then
           nohup "$t" &>/dev/null & echo "Opened: $t"; return 0

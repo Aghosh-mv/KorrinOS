@@ -1,5 +1,5 @@
 /*
- * TinkerOS Thermal Control - capability-probing thermal backend
+ * KorrinOS Thermal Control - capability-probing thermal backend
  * Aggregates package/core temps from multiple sources:
  *   - IA32_THERM_STATUS MSR per-core (fast, 1000x/s capable)
  *   - hwmon /sys/class/thermal zones (fallback)

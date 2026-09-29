@@ -117,16 +117,18 @@ ve_lsh_candidates() {
 ve_lsh_dupe_scan() {
   local thresh="${1:-$VE_LSH_THRESH}"
   local sigdir; sigdir=$(ve_lsh_sigdir)
-  local -A done=()
-  local fpa fpb line r a b hit
-  for fpa in $(ls "$sigdir" 2>/dev/null); do
+  local -A seen=()
+  local fpa fpb line key r a b hit sig
+  for sig in "$sigdir"/*; do
+    [ -f "$sig" ] || continue
+    fpa=$(basename "$sig")
     while IFS= read -r line; do
       [ -z "$line" ] && continue
       fpb="${line%%|*}"; hit="${line##*|}"
       [ "$fpb" = "$fpa" ] && continue
-      key="$fpa>$fpb"; [ "${done[$key]:-0}" = 1 ] && continue
-      done[$key]=1
-      done["$fpb>$fpa"]=1
+      key="$fpa>$fpb"; [ "${seen[$key]:-0}" = 1 ] && continue
+      seen[$key]=1
+      seen["$fpb>$fpa"]=1
       if [ "$hit" -ge "$thresh" ] 2>/dev/null; then
         echo "$fpa|$fpb|$hit"
       fi

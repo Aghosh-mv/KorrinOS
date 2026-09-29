@@ -859,7 +859,7 @@ print(f'{p[\"id\"]:20} {sys_info.get(\"manufacturer\",\"?\"):15} {sys_info.get(\
     echo "   KorrinOS Hardware Certification Status"
     echo "============================================="
     echo ""
-    local profile_count certified_count
+    profile_count certified_count
     profile_count=$(ls -1 "$PROFILES_DIR"/*.json 2>/dev/null | wc -l || echo "0")
     certified_count=$(python3 -c "import json; print(len([h for h in json.load(open('$CERT_DB')).get('hardware',[]) if h.get('status')=='certified']))" 2>/dev/null || echo "0")
     echo "Profiles: $profile_count"

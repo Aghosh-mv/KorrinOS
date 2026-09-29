@@ -222,7 +222,7 @@ shred_logs(){
 # ── The Master Shred ───────────────────────────────────────────────────
 shred(){
   echo "╔══════════════════════════════════════════════════════════╗"
-  echo "║          KorrinOS DATA SHREDDER — NUCLEAR MODE         ║"
+  echo "║          KorrinOS DATA SHREDDER — NUCLEAR MODE           ║"
   echo "╠══════════════════════════════════════════════════════════╣"
   echo "║  This will:                                            ║"
   echo "║  • Randomize your MAC address                         ║"

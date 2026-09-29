@@ -36,13 +36,42 @@ ve_rank_weights() {
   fi
 }
 
+# ---- safely load W1..W9 from the weights string ----------------------------
+# The old code did `eval "$(ve_rank_weights)"`, i.e. it EXECUTED the contents of
+# $VIBE_STATE/weights. Anything able to write that file therefore got code
+# execution. The weights are plain integers, so parse and range-check them
+# instead: only W1..W9 followed by an integer is accepted, anything else is
+# ignored and the default is used.
+ve_rank_load_weights() {
+  local wstr; wstr=$(ve_rank_weights)
+
+  # defaults first, so a malformed file degrades instead of breaking ranking
+  W1=35 W2=25 W3=20 W4=5 W5=15 W6=3 W7=10 W8=15 W9=20
+
+  # explicit per-variable extraction (no eval, no subshell)
+  local tok key idx val
+  for tok in $wstr; do
+    # accept only tokens shaped exactly like W<1-9>=<1-4 digits>
+    case "$tok" in
+      W[1-9]=*) ;;
+      *) continue ;;
+    esac
+    key="${tok%%=*}"
+    val="${tok#*=}"
+    idx="${key#W}"
+    case "$val" in
+      ''|*[!0-9]*) continue ;;   # not a plain unsigned integer -> ignore
+    esac
+    [ "${#val}" -gt 4 ] && continue
+    if [ "$val" -le 999 ] 2>/dev/null; then
+      printf -v "W$idx" '%s' "$val"
+    fi
+  done
+}
+
 # ---- parse weights from string into named vars ------------------------------
 ve_rank_parse_weights() {
-  local wstr; wstr=$(ve_rank_weights)
-  eval "$wstr" 2>/dev/null || true
-  # ensure all set
-  W1=${W1:-35} W2=${W2:-25} W3=${W3:-20} W4=${W4:-5}
-  W5=${W5:-15} W6=${W6:-3} W7=${W7:-10} W8=${W8:-5} W9=${W9:-20}
+  ve_rank_load_weights
 }
 
 # ---- compute weighted final score (0..100) for one candidate ----------------
