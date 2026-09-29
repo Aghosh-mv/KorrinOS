@@ -55,6 +55,20 @@ required "state changes" notice.
 5. **Hook point** in `alacritty/src/renderer/text/glyph_cache.rs`
    (`load_font_metrics`) applies that policy to freshly measured metrics.
 
+6. **Per-language font stack selection.** `active_font_family()` in
+   `kcommand_typography.rs` maps the active language's script to the face we
+   want, and `resolve_family()` applies it only when the user has not
+   explicitly chosen a family of their own. Hooked into `make_desc()` in
+   `glyph_cache.rs`, the single place a `FontDesc` is constructed. FreeType
+   and fontconfig still perform matching and fallback; only the choice of
+   family is KorrinOS policy.
+
+7. **New file `share/kcommand.bash`** — shell integration providing "did you
+   mean" typo detection via bash's native `command_not_found_handle`, using
+   Damerau-Levenshtein distance computed in awk (no external dependencies).
+   Also loads the existing KorrinOS `parcos-terminal.sh` tooling rather than
+   reimplementing it, and adds `kc_version` and `kc_type` helpers.
+
 ## Third-party components
 
 This fork pulls in upstream Alacritty's own dependency tree, each under its own

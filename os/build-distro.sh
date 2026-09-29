@@ -817,6 +817,16 @@ stage_kcommand() {
   "$SUDO" cp "$src/NOTICE.md" "$src/LICENSE" "$ROOTFS/usr/share/doc/kcommand/" 2>/dev/null || true
   "$SUDO" cp "$src/README.md" "$ROOTFS/usr/share/doc/kcommand/" 2>/dev/null || true
 
+  # Shell integration: typo detection and the KorrinOS terminal tooling.
+  "$SUDO" mkdir -p "$ROOTFS/usr/share/kcommand"
+  "$SUDO" cp "$src/share/kcommand.bash" "$ROOTFS/usr/share/kcommand/kcommand.bash" 2>/dev/null || true
+  # Source it from the system bashrc so it is active in every kcommand session.
+  "$SUDO" bash -c "grep -q 'kcommand.bash' '$ROOTFS/etc/bash.bashrc' 2>/dev/null || cat >> '$ROOTFS/etc/bash.bashrc' <<'BASHRC'
+
+# KorrinOS kcommand: typo detection (did you mean) + KorrinOS terminal tools
+[ -r /usr/share/kcommand/kcommand.bash ] && . /usr/share/kcommand/kcommand.bash
+BASHRC"
+
   # The 55-language registry the typography layer reads at runtime.
   "$SUDO" mkdir -p "$ROOTFS/usr/share/korrinos/i18n"
   "$SUDO" cp /home/tinkerspace/linux-kernel/os/i18n/languages.tsv \
