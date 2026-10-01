@@ -1,0 +1,8 @@
+# Compiled kernel objects and their command files. These are build output,
+# not source: kbuild regenerates every one of them on each build.
+*.o
+*.o.cmd
+*.a
+*.ko
+.*.cmd
+.tmp_versions/
