@@ -15,6 +15,9 @@ mod glsl3;
 pub mod glyph_cache;
 // KorrinOS: per-script typography policy layered over FreeType's measurements.
 pub mod kcommand_typography;
+// KorrinOS: the `kcommand!<language>` transition animation. Pure frame maths,
+// kept separate from the renderer so it can be tested without a display.
+pub mod kcommand_transition;
 
 use atlas::Atlas;
 pub use gles2::Gles2Renderer;

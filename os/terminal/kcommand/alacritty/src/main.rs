@@ -79,6 +79,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Load command line options.
     let options = Options::new();
 
+    // Informational flags print and exit before any window or PTY exists. They
+    // are the first thing to reach for when a script or font is not rendering
+    // the way it should, so they must work even when the display is broken.
+    if options.window_options.window_identity.typography {
+        println!("{}", crate::renderer::text::kcommand_typography::describe_active());
+        return Ok(());
+    }
+
+    if options.window_options.window_identity.update {
+        println!("kcommand {}", env!("VERSION"));
+        println!("{}", crate::renderer::text::kcommand_typography::describe_active());
+        return Ok(());
+    }
+
     match options.subcommands {
         #[cfg(unix)]
         Some(Subcommands::Msg(options)) => msg(options)?,

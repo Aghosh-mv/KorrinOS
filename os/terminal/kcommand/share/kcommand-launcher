@@ -101,6 +101,22 @@ kc_take_language() {
     return 0
 }
 
+# Informational probes. These exist so the shell can ask about a language
+# WITHOUT launching a terminal, which is what lets kcommand!Hindi be rewritten
+# by command_not_found_handle instead of needing a file per language.
+case "${1:-}" in
+    --is-language)
+        # Exit 0 when $2 names a shipped locale, 1 otherwise.
+        [ "$#" -ge 2 ] || exit 1
+        kc_resolve "$2" >/dev/null 2>&1 && exit 0
+        exit 1
+        ;;
+    --languages)
+        kc_list_languages
+        exit 0
+        ;;
+esac
+
 # Deliberately NO fallback to a source/build directory.
 #
 # An earlier version walked up to the build tree and launched the terminal from

@@ -216,6 +216,32 @@ pub struct WindowIdentity {
     /// Defines window class/app_id on X11/Wayland [default: Alacritty].
     #[clap(long, value_name = "general> | <general>,<instance", value_parser = parse_class)]
     pub class: Option<Class>,
+
+    // -- KorrinOS additions -----------------------------------------------------
+    // These belong here rather than on TerminalOptions because they are window
+    // behaviour, not something the child process needs to know about.
+
+    /// Play the `kcommand!<language>` transition before starting the shell.
+    ///
+    /// Set by the launcher, never typed by hand: `kcommand!Hindi` resolves the
+    /// language, exports LANGUAGE/LANG and execs us with this flag.
+    #[clap(long)]
+    pub language_transition: bool,
+
+    /// Seed for the transition's glitch pattern.
+    ///
+    /// The animation is a pure function of its seed, so this makes a garbled
+    /// frame reproducible from a bug report. Random when unset.
+    #[clap(long, value_name = "N")]
+    pub transition_seed: Option<u64>,
+
+    /// Print the resolved language and typography policy, then exit.
+    #[clap(long)]
+    pub typography: bool,
+
+    /// Report build/version details, then exit.
+    #[clap(long)]
+    pub update: bool,
 }
 
 impl WindowIdentity {
