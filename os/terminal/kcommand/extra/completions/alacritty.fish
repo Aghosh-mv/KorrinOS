@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_alacritty_global_optspecs
-	string join \n print-events ref-test embed= config-file= socket= q v daemon working-directory= hold e/command= T/title= class= o/option= h/help V/version
+	string join \n print-events ref-test embed= config-file= socket= q v daemon working-directory= hold e/command= T/title= class= language-transition transition-seed= typography update o/option= h/help V/version
 end
 
 function __fish_alacritty_needs_command
@@ -31,6 +31,7 @@ complete -c alacritty -n "__fish_alacritty_needs_command" -l working-directory -
 complete -c alacritty -n "__fish_alacritty_needs_command" -s e -l command -d 'Command and args to execute (must be last argument)' -r
 complete -c alacritty -n "__fish_alacritty_needs_command" -s T -l title -d 'Defines the window title [default: Alacritty]' -r
 complete -c alacritty -n "__fish_alacritty_needs_command" -l class -d 'Defines window class/app_id on X11/Wayland [default: Alacritty]' -r
+complete -c alacritty -n "__fish_alacritty_needs_command" -l transition-seed -d 'Seed for the transition\'s glitch pattern' -r
 complete -c alacritty -n "__fish_alacritty_needs_command" -s o -l option -d 'Override configuration file options [example: \'cursor.style="Beam"\']' -r
 complete -c alacritty -n "__fish_alacritty_needs_command" -l print-events -d 'Print all events to STDOUT'
 complete -c alacritty -n "__fish_alacritty_needs_command" -l ref-test -d 'Generates ref test'
@@ -38,7 +39,10 @@ complete -c alacritty -n "__fish_alacritty_needs_command" -s q -d 'Reduces the l
 complete -c alacritty -n "__fish_alacritty_needs_command" -s v -d 'Increases the level of verbosity (the max level is -vvv)'
 complete -c alacritty -n "__fish_alacritty_needs_command" -l daemon -d 'Do not spawn an initial window'
 complete -c alacritty -n "__fish_alacritty_needs_command" -l hold -d 'Remain open after child process exit'
-complete -c alacritty -n "__fish_alacritty_needs_command" -s h -l help -d 'Print help'
+complete -c alacritty -n "__fish_alacritty_needs_command" -l language-transition -d 'Play the `kcommand!<language>` transition before starting the shell'
+complete -c alacritty -n "__fish_alacritty_needs_command" -l typography -d 'Print the resolved language and typography policy, then exit'
+complete -c alacritty -n "__fish_alacritty_needs_command" -l update -d 'Report build/version details, then exit'
+complete -c alacritty -n "__fish_alacritty_needs_command" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c alacritty -n "__fish_alacritty_needs_command" -s V -l version -d 'Print version'
 complete -c alacritty -n "__fish_alacritty_needs_command" -f -a "msg" -d 'Send a message to the Alacritty socket'
 complete -c alacritty -n "__fish_alacritty_needs_command" -f -a "migrate" -d 'Migrate the configuration file'
@@ -53,9 +57,13 @@ complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -s e -l command -d 'Command and args to execute (must be last argument)' -r
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -s T -l title -d 'Defines the window title [default: Alacritty]' -r
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -l class -d 'Defines window class/app_id on X11/Wayland [default: Alacritty]' -r
+complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -l transition-seed -d 'Seed for the transition\'s glitch pattern' -r
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -s o -l option -d 'Override configuration file options [example: \'cursor.style="Beam"\']' -r
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -l hold -d 'Remain open after child process exit'
-complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -s h -l help -d 'Print help'
+complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -l language-transition -d 'Play the `kcommand!<language>` transition before starting the shell'
+complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -l typography -d 'Print the resolved language and typography policy, then exit'
+complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -l update -d 'Report build/version details, then exit'
+complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from config" -s w -l window-id -d 'Window ID for the new config' -r
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from config" -s r -l reset -d 'Clear all runtime configuration changes'
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from config" -s h -l help -d 'Print help (see more with \'--help\')'

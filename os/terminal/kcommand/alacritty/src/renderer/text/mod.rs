@@ -18,6 +18,9 @@ pub mod kcommand_typography;
 // KorrinOS: the `kcommand!<language>` transition animation. Pure frame maths,
 // kept separate from the renderer so it can be tested without a display.
 pub mod kcommand_transition;
+// KorrinOS: real glyph-coverage checking against font files, so a missing
+// matra or a tofu box is reported instead of silently rendered.
+pub mod kcommand_coverage;
 
 use atlas::Atlas;
 pub use gles2::Gles2Renderer;

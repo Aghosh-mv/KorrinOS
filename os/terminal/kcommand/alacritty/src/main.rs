@@ -84,6 +84,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     // the way it should, so they must work even when the display is broken.
     if options.window_options.window_identity.typography {
         println!("{}", crate::renderer::text::kcommand_typography::describe_active());
+        println!();
+        println!(
+            "{}",
+            crate::renderer::text::kcommand_coverage::describe_active_coverage()
+        );
         return Ok(());
     }
 

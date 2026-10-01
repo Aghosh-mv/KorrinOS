@@ -24,6 +24,7 @@ _alacritty() {
 '-T+[Defines the window title \[default\: Alacritty\]]:TITLE:_default' \
 '--title=[Defines the window title \[default\: Alacritty\]]:TITLE:_default' \
 '--class=[Defines window class/app_id on X11/Wayland \[default\: Alacritty\]]:general> | <general>,<instance:_default' \
+'--transition-seed=[Seed for the transition'\''s glitch pattern]:N:_default' \
 '*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION:_default' \
 '*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION:_default' \
 '--print-events[Print all events to STDOUT]' \
@@ -32,15 +33,18 @@ _alacritty() {
 '(-q)*-v[Increases the level of verbosity (the max level is -vvv)]' \
 '--daemon[Do not spawn an initial window]' \
 '--hold[Remain open after child process exit]' \
-'-h[Print help]' \
-'--help[Print help]' \
+'--language-transition[Play the \`kcommand!<language>\` transition before starting the shell]' \
+'--typography[Print the resolved language and typography policy, then exit]' \
+'--update[Report build/version details, then exit]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
 '-V[Print version]' \
 '--version[Print version]' \
 ":: :_alacritty_commands" \
-"*::: :->alacritty" \
+"*::: :->kcommand" \
 && ret=0
     case $state in
-    (alacritty)
+    (kcommand)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
         curcontext="${curcontext%:*:*}:alacritty-command-$line[1]:"
@@ -69,11 +73,15 @@ _arguments "${_arguments_options[@]}" : \
 '-T+[Defines the window title \[default\: Alacritty\]]:TITLE:_default' \
 '--title=[Defines the window title \[default\: Alacritty\]]:TITLE:_default' \
 '--class=[Defines window class/app_id on X11/Wayland \[default\: Alacritty\]]:general> | <general>,<instance:_default' \
+'--transition-seed=[Seed for the transition'\''s glitch pattern]:N:_default' \
 '*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION:_default' \
 '*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION:_default' \
 '--hold[Remain open after child process exit]' \
-'-h[Print help]' \
-'--help[Print help]' \
+'--language-transition[Play the \`kcommand!<language>\` transition before starting the shell]' \
+'--typography[Print the resolved language and typography policy, then exit]' \
+'--update[Report build/version details, then exit]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
 ;;
 (config)

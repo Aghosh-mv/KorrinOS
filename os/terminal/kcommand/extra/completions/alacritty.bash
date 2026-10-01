@@ -74,7 +74,7 @@ _alacritty() {
 
     case "${cmd}" in
         alacritty)
-            opts="-q -v -e -T -o -h -V --print-events --ref-test --embed --config-file --socket --daemon --working-directory --hold --command --title --class --option --help --version msg migrate help"
+            opts="-q -v -e -T -o -h -V --print-events --ref-test --embed --config-file --socket --daemon --working-directory --hold --command --title --class --language-transition --transition-seed --typography --update --option --help --version msg migrate help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -146,6 +146,10 @@ _alacritty() {
                     return 0
                     ;;
                 --class)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --transition-seed)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -373,7 +377,7 @@ _alacritty() {
             return 0
             ;;
         alacritty__msg__create__window)
-            opts="-e -T -o -h --working-directory --hold --command --title --class --option --help"
+            opts="-e -T -o -h --working-directory --hold --command --title --class --language-transition --transition-seed --typography --update --option --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -411,6 +415,10 @@ _alacritty() {
                     return 0
                     ;;
                 --class)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --transition-seed)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
