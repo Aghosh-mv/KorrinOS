@@ -471,18 +471,23 @@ pub fn describe_active_coverage() -> String {
     let Some(script) = typography::active_script() else {
         return "kcommand coverage: no active language resolved; cannot check glyphs".to_string();
     };
-    let Some(family) = typography::active_font_family() else {
+    let Some(policy_family) = typography::active_font_family() else {
         return format!(
             "kcommand coverage: script={script} has no font policy; \
              using your configured family, which is not being verified"
         );
     };
 
-    let report = check_script(script, family);
+    // Walk the chain rather than trusting the registry's first choice, so a
+    // missing specialised font degrades to one that has the glyphs.
+    let (family, report) = resolve_best_family(script);
+    let degraded = family != policy_family;
+
     if report.path.is_none() {
         return format!(
             "kcommand coverage: script={script} family={family} NOT INSTALLED \
-             (expected under /usr/share/fonts; glyphs would render as boxes)"
+             (tried {:?}; glyphs would render as boxes)",
+            typography::fallback_chain(script)
         );
     }
     if report.unreadable {
@@ -492,22 +497,72 @@ pub fn describe_active_coverage() -> String {
             report.path
         );
     }
-    if report.missing.is_empty() {
-        // Name the file that was actually opened. Without this a wrong match
-        // would print a confident OK with nothing to check it against.
+    if !report.missing.is_empty() {
         return format!(
-            "kcommand coverage: script={script} family={family} OK \
-             ({} probe glyphs in {:?})",
+            "kcommand coverage: script={script} family={family} MISSING {} of {} probe glyphs: {}",
+            report.missing.len(),
             probe_codepoints(script).len(),
-            report.path
+            report.missing.iter().collect::<String>()
         );
     }
+
+    let note = if degraded {
+        format!(" (degraded from {policy_family}, which is not installed)")
+    } else {
+        String::new()
+    };
+    // Name the file that was actually opened. Without this a wrong match would
+    // print a confident OK with nothing to check it against.
     format!(
-        "kcommand coverage: script={script} family={family} MISSING {} of {} probe glyphs: {}",
-        report.missing.len(),
+        "kcommand coverage: script={script} family={family} OK \
+         ({} probe glyphs in {:?}){note}",
         probe_codepoints(script).len(),
-        report.missing.iter().collect::<String>()
+        report.path
     )
+}
+
+/// Pick the best family for a script: the first entry in the fallback chain that
+/// is installed AND genuinely covers the script.
+///
+/// This is what turns a hardcoded family into something that degrades. The
+/// registry names "Noto Sans Mono Devanagari" for Devanagari, but on a machine
+/// without that package the previous behaviour was to request it anyway and
+/// render every Devanagari character as a box.
+pub fn resolve_best_family(script: &str) -> (String, ScriptCoverage) {
+    let chain = typography_fallback_chain(script);
+    let mut last: Option<ScriptCoverage> = None;
+    for family in &chain {
+        let report = check_script(script, family);
+        if report.is_ok() {
+            return (family.to_string(), report);
+        }
+        last = Some(report);
+    }
+    // Nothing covered the script. Report the LAST family actually examined,
+    // together with its own report: pairing the first family's name with a
+    // later family's report names a font the reader cannot go and check.
+    match last {
+        Some(report) => (report.family.clone(), report),
+        None => {
+            let first = chain.first().copied().unwrap_or("Noto Sans").to_string();
+            let report = ScriptCoverage {
+                script: script.to_string(),
+                family: first.clone(),
+                path: None,
+                missing: probe_codepoints(script)
+                    .iter()
+                    .filter_map(|c| char::from_u32(*c))
+                    .collect(),
+                unreadable: false,
+            };
+            (first, report)
+        },
+    }
+}
+
+/// Indirection so the chain can be swapped in tests without a font on disk.
+fn typography_fallback_chain(script: &str) -> Vec<&'static str> {
+    crate::renderer::text::kcommand_typography::fallback_chain(script)
 }
 
 #[cfg(test)]
@@ -766,6 +821,38 @@ mod tests {
         assert!(report.path.is_none());
         assert!(!report.is_ok());
         assert!(!report.missing.is_empty(), "probes must be reported as missing");
+    }
+
+    #[test]
+    fn the_reported_family_is_the_one_that_was_examined() {
+        // Regression: the no-coverage path used to pair the FIRST family's name
+        // with the LAST family's report, naming a font the reader cannot go and
+        // check. Whatever we report must be the font we actually opened.
+        let (family, report) = resolve_best_family("deva");
+        assert_eq!(family, report.family, "family name and report must agree");
+        assert!(!report.is_ok() || family != "Definitely Not A Font");
+    }
+
+    #[test]
+    fn the_chain_is_actually_walked() {
+        // If the chain were ignored, a script whose specialised face is missing
+        // would just report that face. The report must name something the chain
+        // contains.
+        let chain = crate::renderer::text::kcommand_typography::fallback_chain("deva");
+        let (family, _) = resolve_best_family("deva");
+        assert!(chain.contains(&family.as_str()), "{family} is not in {chain:?}");
+    }
+
+    #[test]
+    fn a_covered_script_picks_a_family_that_really_covers_it() {
+        if !std::path::Path::new("/usr/share/fonts").is_dir() {
+            return;
+        }
+        let (family, report) = resolve_best_family("latin");
+        if report.is_ok() {
+            assert_eq!(family, report.family);
+            assert!(report.missing.is_empty());
+        }
     }
 
     #[test]

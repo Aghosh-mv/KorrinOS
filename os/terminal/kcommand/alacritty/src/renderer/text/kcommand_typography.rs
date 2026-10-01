@@ -238,6 +238,55 @@ pub fn active_font_family() -> Option<&'static str> {
     })
 }
 
+/// The ordered families to try for the active script, best first.
+///
+/// Why a chain and not one family: real terminal lines MIX scripts. `ls
+/// ~/हिन्दी/` in an English session is Latin plus Devanagari in one line, and a
+/// single per-script family leaves the other run rendering as tofu. The active
+/// script's face comes first, then a broad-coverage fallback that covers the
+/// scripts the specialised faces are missing.
+///
+/// The chain is policy only and cheap to compute: it never touches the
+/// filesystem. Deciding which entry is actually INSTALLED, and whether it
+/// really covers the script, is `kcommand_coverage`'s job, because that reads
+/// font files and must not run on the hot path.
+pub fn fallback_chain(script: &str) -> Vec<&'static str> {
+    let primary = match script {
+        "latin" | "cyrillic" | "greek" => "Balsamiq Sans",
+        "arabic" => "Noto Sans Mono Arabic",
+        "hebrew" => "Noto Sans Mono Hebrew",
+        "deva" => "Noto Sans Mono Devanagari",
+        "beng" => "Noto Sans Mono Bengali",
+        "taml" => "Noto Sans Mono Tamil",
+        "telu" => "Noto Sans Mono Telugu",
+        "gujr" => "Noto Sans Mono Gujarati",
+        "knda" => "Noto Sans Mono Kannada",
+        "mlym" => "Noto Sans Mono Malayalam",
+        "guru" => "Noto Sans Mono Gurmukhi",
+        "sinh" => "Noto Sans Mono Sinhala",
+        "thai" => "Noto Sans Mono Thai",
+        "lao" => "Noto Sans Mono Lao",
+        "mymr" => "Noto Sans Mono Myanmar",
+        "ethi" => "Noto Sans Mono Ethiopic",
+        "hans" | "hant" => "Noto Sans Mono CJK SC",
+        "jpan" => "Noto Sans Mono CJK JP",
+        "kore" => "Noto Sans Mono CJK KR",
+        // Unknown script: no opinion, but still offer a broad fallback so
+        // mixed text degrades to something readable rather than to tofu.
+        _ => return vec!["Noto Sans"],
+    };
+
+    // Broad-coverage faces that cover most non-CJK scripts, so a line that runs
+    // off the end of the specialised face still renders.
+    let mut chain = vec![primary];
+    for fallback in ["Noto Sans", "DejaVu Sans"] {
+        if fallback != primary {
+            chain.push(fallback);
+        }
+    }
+    chain
+}
+
 /// Resolve the family to actually request: our policy for the active script,
 /// unless the user has explicitly chosen a family of their own.
 pub fn resolve_family(configured: &str) -> String {
@@ -250,6 +299,61 @@ pub fn resolve_family(configured: &str) -> String {
         }
     }
     configured.to_string()
+}
+
+#[cfg(test)]
+mod chain_tests {
+    use super::fallback_chain;
+
+    #[test]
+    fn every_shipped_script_has_a_chain() {
+        let scripts = [
+            "latin", "cyrillic", "greek", "arabic", "hebrew", "deva", "beng", "taml",
+            "telu", "gujr", "knda", "mlym", "guru", "sinh", "thai", "lao", "mymr", "ethi",
+            "hans", "hant", "jpan", "kore",
+        ];
+        for script in scripts {
+            let chain = fallback_chain(script);
+            assert!(chain.len() >= 2, "{script} has no fallback: {chain:?}");
+        }
+    }
+
+    #[test]
+    fn the_script_face_comes_first() {
+        // The specialised face must be first, or the whole chain is pointless.
+        assert_eq!(fallback_chain("deva")[0], "Noto Sans Mono Devanagari");
+        assert_eq!(fallback_chain("taml")[0], "Noto Sans Mono Tamil");
+        assert_eq!(fallback_chain("kore")[0], "Noto Sans Mono CJK KR");
+    }
+
+    #[test]
+    fn a_chain_has_no_duplicates() {
+        for script in ["deva", "latin", "kore", "thai"] {
+            let chain = fallback_chain(script);
+            let mut sorted = chain.clone();
+            sorted.sort_unstable();
+            sorted.dedup();
+            assert_eq!(sorted.len(), chain.len(), "{script} repeats a family: {chain:?}");
+        }
+    }
+
+    #[test]
+    fn the_chain_ends_in_broad_coverage() {
+        // Every chain must finish somewhere readable, so mixed text degrades.
+        for script in ["deva", "arabic", "jpan"] {
+            let chain = fallback_chain(script);
+            assert!(
+                chain.iter().any(|f| *f == "Noto Sans" || *f == "DejaVu Sans"),
+                "{script} chain has no broad fallback: {chain:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_unknown_script_still_gets_a_fallback() {
+        let chain = fallback_chain("klingon");
+        assert_eq!(chain, vec!["Noto Sans"]);
+    }
 }
 
 #[cfg(test)]
