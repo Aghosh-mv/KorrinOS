@@ -812,6 +812,34 @@ stage_kcommand() {
   [ -x "$bin" ] || { echo "  WARNING: kcommand binary not produced"; return 0; }
 
   "$SUDO" install -m 0755 "$bin" "$ROOTFS/usr/bin/kcommand"
+
+  # The launcher (same script as /usr/bin/kcommand) plus the per-language
+  # wrappers that make "kcommand!Hindi" work as a SINGLE shell word.
+  "$SUDO" install -m 0755 "$src/share/kcommand-launcher" \
+      "$ROOTFS/usr/bin/kcommand-launcher" 2>/dev/null || true
+  "$SUDO" install -m 0755 "$src/share/kcommand-lang-wrappers" \
+      "$ROOTFS/usr/share/kcommand/kcommand-lang-wrappers" 2>/dev/null || true
+
+  # The launcher resolves language names against this registry, so it must sit
+  # at the path the launcher searches first.
+  if [ -f "$src/share/i18n/languages.tsv" ]; then
+    "$SUDO" mkdir -p "$ROOTFS/usr/share/korrinos/i18n"
+    "$SUDO" install -m 0644 "$src/share/i18n/languages.tsv" \
+        "$ROOTFS/usr/share/korrinos/i18n/languages.tsv"
+  fi
+
+  # One wrapper per language, named kcommand!<Language>. bash resolves a single
+  # word by name, so this is the only way the one-word form can work.
+  if [ -x "$src/share/kcommand-lang-wrappers" ] \
+     && [ -f "$ROOTFS/usr/share/korrinos/i18n/languages.tsv" ]; then
+    "$SUDO" mkdir -p "$ROOTFS/usr/local/bin"
+    "$SUDO" KCOMMAND_LAUNCHER=/usr/bin/kcommand \
+        "$src/share/kcommand-lang-wrappers" \
+        "$ROOTFS/usr/share/korrinos/i18n/languages.tsv" \
+        "$ROOTFS/usr/local/bin" 2>/dev/null \
+        && echo "  generated kcommand!<language> wrappers" \
+        || echo "  WARNING: could not generate kcommand!<language> wrappers"
+  fi
   # Apache-2.0 obligations travel with the binary.
   "$SUDO" mkdir -p "$ROOTFS/usr/share/doc/kcommand"
   "$SUDO" cp "$src/NOTICE.md" "$src/LICENSE" "$ROOTFS/usr/share/doc/kcommand/" 2>/dev/null || true

@@ -36,6 +36,71 @@ kc_finish() {  # kc_finish <status>
     return "$rc"
 }
 
+# ---------------------------------------------------------------------------
+# Language switching: kcommand!Hindi, kcommand!हिन्दी, kcommand!hi
+# ---------------------------------------------------------------------------
+
+# Where the language registry lives. KCOMMAND_REGISTRY overrides the search,
+# which keeps this testable from a build tree and lets a developer point at a
+# registry that is not the installed one.
+KC_REGISTRY="${KCOMMAND_REGISTRY:-}"
+if [ -z "$KC_REGISTRY" ]; then
+    for cand in \
+        /usr/share/korrinos/i18n/languages.tsv \
+        "$(dirname "$0")/../i18n/languages.tsv" \
+        "$(dirname "$0")/../../i18n/languages.tsv"
+    do
+        if [ -r "$cand" ]; then KC_REGISTRY="$cand"; break; fi
+    done
+fi
+
+# kc_list_languages: print "code<TAB>English (endonym)" for every shipped locale.
+kc_list_languages() {
+    [ -n "$KC_REGISTRY" ] || return 1
+    grep -vE '^[[:space:]]*(#|$)' "$KC_REGISTRY" \
+        | awk -F'\t' 'NF>=7 && $1!="code" { printf "  %-8s %s (%s)\n", $1, $4, $3 }'
+}
+
+# kc_resolve <name>: resolve a language name to "<code> <locale>".
+# Matches the English name, the endonym (native name) or the code, so
+# "Hindi", "हिन्दी" and "hi" all land on the same locale.
+kc_resolve() {
+    local want="${1,,}"
+    want="${want#\!}"                       # strip the "!" marker
+    want="${want#-}"                        # tolerate a leading dash: !-Hindi
+    [ -n "$want" ] || return 1
+    [ -n "$KC_REGISTRY" ] || return 1
+    awk -F'\t' -v want="$want" '
+        NF>=7 && $1!="code" {
+            key=tolower($4); end=tolower($3); code=tolower($1)
+            bare=code; sub(/-.*/, "", bare)
+            if (key==want || end==want || code==want || bare==want) {
+                print $1 "\t" $2; found=1; exit
+            }
+        }
+        END { exit(found ? 0 : 1) }
+    ' "$KC_REGISTRY"
+}
+
+# Set LANGUAGE/LANG from a resolved "<code> <locale>" pair.
+kc_apply_language() {
+    export LANGUAGE="$1"
+    export LANG="$2"
+}
+
+# Did the first argument ask for a language switch? Sets KC_LANG_CODE/KC_LANG_LOC.
+KC_LANG_CODE=""
+KC_LANG_LOC=""
+kc_take_language() {
+    local spec="$1" resolved
+    # A bare "!" is the pre-existing no-argument form, not a language.
+    [ "$spec" != "!" ] || return 1
+    resolved="$(kc_resolve "$spec")" || return 1
+    KC_LANG_CODE="${resolved%%	*}"
+    KC_LANG_LOC="${resolved##*	}"
+    return 0
+}
+
 # Deliberately NO fallback to a source/build directory.
 #
 # An earlier version walked up to the build tree and launched the terminal from
@@ -47,6 +112,41 @@ if [ ! -x "$KC_BIN" ]; then
     printf 'Expected: %s\n' "$KC_BIN" >&2
     printf 'It ships with KorrinOS. On a build host it is intentionally absent.\n' >&2
     exit 127
+fi
+
+# A leading "!name" switches language. Everything after it is optional.
+#
+# A leading "!" that is not a bare "!" is ALWAYS meant as a language, so an
+# unresolvable one must fail loudly rather than fall through and be handed to
+# the shell as a command named "!Klingon".
+kc_is_language_spec() {
+    case "$1" in
+        '!') return 1 ;;
+        '!'*) return 0 ;;
+    esac
+    return 1
+}
+
+KC_SWITCHED=0
+if [ "$#" -gt 0 ] && kc_is_language_spec "$1"; then
+    if kc_take_language "$1"; then
+        KC_SWITCHED=1
+        shift
+        kc_apply_language "$KC_LANG_CODE" "$KC_LANG_LOC"
+        if [ "$#" -eq 0 ]; then
+            # Switching and opening: play the transition, then hand over.
+            exec "$KC_BIN" --language-transition
+        fi
+    else
+        printf 'kcommand: unknown language %s\n\n' "${1#!}" >&2
+        printf 'Available languages:\n' >&2
+        kc_list_languages >&2 || printf '  (no language registry found)\n' >&2
+        exit 2
+    fi
+elif [ "$#" -eq 1 ] && [ "$1" = "!" ]; then
+    # A bare "!" carries no language and no command: just open a terminal.
+    # Without this it would be handed to the shell as a command named "!".
+    exec "$KC_BIN"
 fi
 
 # No arguments: open a terminal. exec replaces this process, so the exit code
