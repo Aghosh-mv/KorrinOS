@@ -1,0 +1,16 @@
+[package]
+name = "korrinos-wordpen"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85.0"
+description = "KorrinOS handwriting screen saver: draws a random word, in a random shipped language, in a random colour"
+
+[lib]
+name = "wordpen"
+path = "src/lib.rs"
+
+[[bin]]
+name = "korrinos-wordpen"
+path = "src/main.rs"
+
+[dependencies]
