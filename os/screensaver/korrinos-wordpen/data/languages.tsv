@@ -1,0 +1,58 @@
+# KorrinOS wordpen languages. code | endonym | english | font family chain
+# Generated from the canonical 55-locale registry, so the saver and the
+# terminal always agree on which languages exist and which face to use.
+en	English	English	Balsamiq Sans|DejaVu Sans|Noto Sans
+es	Español	Spanish	Balsamiq Sans|DejaVu Sans|Noto Sans
+fr	Français	French	Balsamiq Sans|DejaVu Sans|Noto Sans
+de	Deutsch	German	Balsamiq Sans|DejaVu Sans|Noto Sans
+pt-BR	Português (Brasil)	Brazilian Portuguese	Balsamiq Sans|DejaVu Sans|Noto Sans
+it	Italiano	Italian	Balsamiq Sans|DejaVu Sans|Noto Sans
+nl	Nederlands	Dutch	Balsamiq Sans|DejaVu Sans|Noto Sans
+sv	Svenska	Swedish	Balsamiq Sans|DejaVu Sans|Noto Sans
+da	Dansk	Danish	Balsamiq Sans|DejaVu Sans|Noto Sans
+nb	Norsk	Norwegian	Balsamiq Sans|DejaVu Sans|Noto Sans
+fi	Suomi	Finnish	Balsamiq Sans|DejaVu Sans|Noto Sans
+pl	Polski	Polish	Balsamiq Sans|DejaVu Sans|Noto Sans
+cs	Čeština	Czech	Balsamiq Sans|DejaVu Sans|Noto Sans
+sk	Slovenčina	Slovak	Balsamiq Sans|DejaVu Sans|Noto Sans
+hu	Magyar	Hungarian	Balsamiq Sans|DejaVu Sans|Noto Sans
+ro	Română	Romanian	Balsamiq Sans|DejaVu Sans|Noto Sans
+bg	Български	Bulgarian	Balsamiq Sans|DejaVu Sans|Noto Sans
+hr	Hrvatski	Croatian	Balsamiq Sans|DejaVu Sans|Noto Sans
+sr	Српски	Serbian	Balsamiq Sans|DejaVu Sans|Noto Sans
+sl	Slovenščina	Slovenian	Balsamiq Sans|DejaVu Sans|Noto Sans
+el	Ελληνικά	Greek	Balsamiq Sans|DejaVu Sans|Noto Sans
+tr	Türkçe	Turkish	Balsamiq Sans|DejaVu Sans|Noto Sans
+ru	Русский	Russian	Balsamiq Sans|DejaVu Sans|Noto Sans
+uk	Українська	Ukrainian	Balsamiq Sans|DejaVu Sans|Noto Sans
+be	Беларуская	Belarusian	Balsamiq Sans|DejaVu Sans|Noto Sans
+et	Eesti	Estonian	Balsamiq Sans|DejaVu Sans|Noto Sans
+lv	Latviešu	Latvian	Balsamiq Sans|DejaVu Sans|Noto Sans
+lt	Lietuvių	Lithuanian	Balsamiq Sans|DejaVu Sans|Noto Sans
+ar	العربية	Arabic	Noto Sans Arabic|Noto Sans|DejaVu Sans
+he	עברית	Hebrew	Noto Sans Hebrew|Noto Sans|DejaVu Sans
+fa	فارسی	Persian	Noto Sans Arabic|Noto Sans|DejaVu Sans
+ur	اردو	Urdu	Noto Sans Arabic|Noto Sans|DejaVu Sans
+hi	हिन्दी	Hindi	Noto Sans Devanagari|Noto Sans|DejaVu Sans
+bn	বাংলা	Bengali	Noto Sans Bengali|Noto Sans|DejaVu Sans
+ta	தமிழ்	Tamil	Noto Sans Tamil|Noto Sans|DejaVu Sans
+te	తెలుగు	Telugu	Noto Sans Telugu|Noto Sans|DejaVu Sans
+mr	मराठी	Marathi	Noto Sans Devanagari|Noto Sans|DejaVu Sans
+gu	ગુજરાતી	Gujarati	Noto Sans Gujarati|Noto Sans|DejaVu Sans
+kn	ಕನ್ನಡ	Kannada	Noto Sans Kannada|Noto Sans|DejaVu Sans
+ml	മലയാളം	Malayalam	Noto Sans Malayalam|Noto Sans|DejaVu Sans
+pa	ਪੰਜਾਬੀ	Punjabi	Noto Sans Gurmukhi|Noto Sans|DejaVu Sans
+ne	नेपाली	Nepali	Noto Sans Devanagari|Noto Sans|DejaVu Sans
+si	සිංහල	Sinhala	Noto Sans Sinhala|Noto Sans|DejaVu Sans
+th	ไทย	Thai	Noto Sans Thai|Noto Sans|DejaVu Sans
+lo	ລາວ	Lao	Noto Sans Lao|Noto Sans|DejaVu Sans
+vi	Tiếng Việt	Vietnamese	Balsamiq Sans|DejaVu Sans|Noto Sans
+id	Bahasa Indonesia	Indonesian	Balsamiq Sans|DejaVu Sans|Noto Sans
+ms	Bahasa Melayu	Malay	Balsamiq Sans|DejaVu Sans|Noto Sans
+sw	Kiswahili	Swahili	Balsamiq Sans|DejaVu Sans|Noto Sans
+am	አማርኛ	Amharic	Noto Sans Ethiopic|Noto Sans|DejaVu Sans
+my	မြန်မာ	Burmese	Noto Sans Myanmar|Noto Sans|DejaVu Sans
+zh-CN	简体中文	Chinese (Simplified)	Noto Sans CJK SC|Noto Sans|DejaVu Sans
+zh-TW	繁體中文	Chinese (Traditional)	Noto Sans CJK TC|Noto Sans CJK SC|Noto Sans
+ja	日本語	Japanese	Noto Sans CJK JP|Noto Sans CJK SC|Noto Sans
+ko	한국어	Korean	Noto Sans CJK KR|Noto Sans CJK SC|Noto Sans

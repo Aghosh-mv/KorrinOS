@@ -1,0 +1,13 @@
+# KorrinOS wordpen OPTIONAL adult set. NOT loaded unless the option is enabled.
+#
+# Kept in its own file on purpose. A word drawn on a screen anyone can walk past,
+# photograph or screenshot should be a deliberate choice by whoever owns the
+# machine, not something that happens by default. The default set in words.tsv
+# is what the saver draws unless told otherwise.
+#
+# Same rules as the main file: code<TAB>word, and every word is still verified
+# against the resolved font's cmap at runtime, so nothing here can render as a
+# box either.
+#
+# Leave this file empty to ship with no adult words at all. The saver treats a
+# missing or empty file as "no adult words" and carries on.
