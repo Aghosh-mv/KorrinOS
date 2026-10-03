@@ -1,302 +1,260 @@
-# SPDX-License-Identifier: GPL-2.0
+# KorrinOS kernel features
 #
-# KorrinOS core kernel features
+# GENERATED to match tinker/Makefile: every CONFIG_TINKER_* symbol the Makefile
+# references has an entry here, and vice versa, so the two cannot drift.
 #
-# Hardware-throughput-code desktop OS features implemented as real
-# kernel C code, inside the Linux kernel. See AGENTS.md in the repo root
-# for the project origin and mission.
+# This is a FRAGMENT, meant to be sourced from a real kernel tree's top-level
+# Kconfig:
+#
+#     source "drivers/tinker/Kconfig"
+#
+# with the directory added to that tree's top-level Makefile:
+#
+#     obj-y += tinker/
+#
+# Deliberately no "mainmenu" and no wrapping menu: those belong only in a
+# top-level Kconfig, and putting them in a sourced file confuses kconfig.
+#
+# See ../README-KERNEL-STATE.md. The kernel/ tree in this repo is a partial
+# snapshot - no include/, arch/, drivers/ or Kconfig - so none of this can be
+# built until a real kernel source tree is fetched and `make prepare` has run.
 
-menuconfig TINKER_FEATURES
-	bool "KorrinOS core kernel features"
+comment "KorrinOS kernel features"
+
+config TINKER
+	bool "KorrinOS kernel features"
 	help
-	  KorrinOS hardware-throughput-code features: thermal-aware
-	  scheduling hints, game-mode boost knob, energy/DVFS governor
-	  hinting, and battery/backlight lifespan management.
-
-	  These are experimental kernel enhancements, enabled by default
-	  when the menu is activated. They are safe to disable entirely.
-
-if TINKER_FEATURES
+	  Base menu for the KorrinOS kernel feature modules. These compile into the
+	  kernel image (obj-y) rather than as loadable modules, because the point is
+	  to be real kernel code and not a service running beside one.
 
 config TINKER_CORE
-	bool "KorrinOS core interface (/proc/tinker)"
-	default y
+	bool "KorrinOS core (/proc/tinker interface)"
+	depends on TINKER
 	help
-	  Core KorrinOS procfs interface and sysctls. Provides
-	  /proc/tinker/{thermal,gamemode,energy,battery,oled,status}.
-
-config TINKER_THERMAL_SCHED
-	bool "Thermal-aware scheduling hints"
-	depends on TINKER_CORE && SMP
-	default y
-	help
-	  Maintains a per-CPU thermal heat map from the kernel's thermal
-	  zones and exposes/spreads load hints to avoid saturating hot
-	  cores, mimicking silicon thermal-mapping schedulers without
-	  touching the core scheduler data structures.
-
-config TINKER_GAMEMODE
-	bool "GameMode scheduling boost"
-	depends on TINKER_CORE
-	default y
-	help
-	  Allows boosting a process group (by TGID) to a high realtime
-	  priority, mirroring the Feral GameMode background service as a
-	  first-class kernel interface.
-
-config TINKER_ENERGY_SCHED
-	bool "Energy / DVFS hint governor"
-	depends on TINKER_CORE
-	default y
-	help
-	  Exposes a microsecond-scale energy hinting interface (peak and
-	  idle voltage/frequency profiles) that the cpufreq governors can
-	  consume, plus runtime energy accounting.
-
-config TINKER_BATTERY_LIFE
-	bool "Battery lifespan manager"
-	depends on TINKER_CORE
-	default y
-	help
-	  Tracks power_supply charge limits and exposes a safe charge
-	  envelope (trickle charge + top-off) to prolong battery life.
-
-config TINKER_OLED_WEAR
-	bool "OLED burn-in wear compensation"
-	depends on TINKER_CORE && BACKLIGHT_CLASS_DEVICE
-	default y
-	help
-	  Exposes a proportional backlight dimming path used by the
-	  display layer to balance sub-pixel wear on OLED panels.
-
-config TINKER_CACHE_TIERING
-	bool "Software-defined cache tiering (CAT/MPAM)"
-	depends on TINKER_CORE
-	default y
-	help
-	  Cache-partitioning ways profile (Intel CAT / ARM MPAM).
-
-config TINKER_COIL_WHINE
-	bool "Coil-whine killer (PWM frequency shifter)"
-	depends on TINKER_CORE
-	default y
-	help
-	  VRM PWM switching-frequency hint, consent-gated, with popup flag.
-
-config TINKER_SHREDDER
-	bool "Kernel data shredder (privacy wipe)"
-	depends on TINKER_CORE && SWAP
-	default y
-	help
-	  Kernel privacy helpers: swap-scrub policy, HW-id scramble intent.
-
-config TINKER_DUST_DISLODGER
-	bool "Acoustic dust dislodger (fan pulse)"
-	depends on TINKER_CORE
-	default y
-	help
-	  Resonant fan pulse program, idle-gated and consent-gated.
-
-config TINKER_FPGA_SCALER
-	bool "Dynamic FPGA precision scaler"
-	depends on TINKER_CORE
-	default y
-	help
-	  Precision-width profile for FPGA datapaths (energy-hint fallback).
-
-config TINKER_ZERO_LATENCY
-	bool "Zero-latency input path"
-	depends on TINKER_CORE
-	default y
-	help
-	  Low-latency input scheduling boost interface.
-
-config TINKER_CXL_MEMORY
-	bool "Unified memory over CXL"
-	depends on TINKER_CORE
-	default y
-	help
-	  Memory-pool registry (DRAM/VRAM/CXL/net) — opt-in only.
-
-config TINKER_DVFS_SHAVER
-	bool "DVFS shaver (micro V/F hint)"
-	depends on TINKER_CORE
-	default y
-	help
-	  Microsecond-scale voltage/frequency profile hints plus energy
-	  accounting, fully software-driven.
-
-config TINKER_HW_DNA
-	bool "Hardware DNA (fingerprinting)"
-	depends on TINKER_CORE
-	default y
-	help
-	  Stable hashed hardware identity, obfuscatable.
-
-config TINKER_RAY_AUDIO
-	bool "Ray-traced audio DSP"
-	depends on TINKER_CORE
-	default y
-	help
-	  Geometric sound-propagation DSP (ray-cast reverb/occlusion).
-
-config TINKER_NEURAL_AUDIO
-	bool "Neural audio enhancement DSP"
-	depends on TINKER_CORE
-	default y
-	help
-	  Audio enhancement chain (gain/noise/EQ) DSP frontend.
-
-config TINKER_PREWARM
-	bool "Predictive pre-warm"
-	depends on TINKER_CORE
-	default y
-	help
-	  Predictive next-process memory/process prewarm with hit/miss
-	  learning feedback.
-
-config TINKER_POWER_GRID
-	bool "Smart power grid"
-	depends on TINKER_CORE
-	default y
-	help
-	  Load/value-aware energy scheduling profile manager.
+	  Shared plumbing for the KorrinOS modules: the /proc/tinker entry point,
+	  tinker_proc_root, and the helpers the feature modules call into. Every other
+	  TINKER_* module needs this, so it is selected automatically.
 
 config TINKER_ADAPTIVE_DISPLAY
-	bool "Adaptive display"
-	depends on TINKER_CORE && BACKLIGHT_CLASS_DEVICE
-	default y
+	bool "KorrinOS adaptive display"
 	help
-	  Adaptive refresh/brightness profile interface.
-
-config TINKER_UNIFIED_MEM
-	bool "Unified heterogeneous memory pool"
-	depends on TINKER_CORE
-	default y
-	help
-	  Software-defined memory tier placement registry (opt-in).
-
-config TINKER_HW_TUNING
-	bool "Low-level hardware tuning"
-	depends on TINKER_CORE
-	default y
-	help
-	  Governor/overclock/fan-curve tuning farm, consent-gated.
-
-config TINKER_NEURAL_SUPERRES
-	bool "Neural super-resolution DSP"
-	depends on TINKER_CORE
-	default y
-	help
-	  Upscale profile frontend (scale/sharpness/model).
-
-config TINKER_PREDICT_RENDER
-	bool "Predictive rendering"
-	depends on TINKER_CORE
-	default y
-	help
-	  Ahead-of-time frame pre-render with hit/miss feedback.
-
-config TINKER_REMOTE_HW
-	bool "Remote hardware API"
-	depends on TINKER_CORE
-	default y
-	help
-	  Opt-in, armed-token-gated remote h/w control slots.
-
-config TINKER_SDGPU
-	bool "Software-defined GPU control plane"
-	depends on TINKER_CORE
-	default y
-	help
-	  SD-GPU policy (compute share / latency / power cap) hints.
-
-config TINKER_FINANCE_AUDIT
-	bool "Local finance/subscription audit hooks"
-	depends on TINKER_CORE
-	default y
-	help
-	  Unused-subscription ledger hooks for the user-space auditor.
-
-config TINKER_PKG_TRACKER
-	bool "Package state tracker"
-	depends on TINKER_CORE
-	default y
-	help
-	  Kernel-level package install/update/remove event tracking.
-	  Provides /proc/tinker/pkg interface for the user-space
-	  package manager.
-
-config TINKER_UPDATE_MONITOR
-	bool "Update state monitor"
-	depends on TINKER_CORE
-	default y
-	help
-	  Kernel-level update scheduling and state tracking.
-	  Provides /proc/tinker/update interface for the update system.
-
-config TINKER_CLOUD_SYNC
-	bool "Cloud sync state tracker"
-	depends on TINKER_CORE
-	default y
-	help
-	  Kernel-level cloud provider sync state tracking.
-	  Provides /proc/tinker/cloud interface.
-
-config TINKER_MOBILE_COMPANION
-	bool "Mobile companion state"
-	depends on TINKER_CORE
-	default y
-	help
-	  Kernel-level phone connection and companion state.
-	  Provides /proc/tinker/mobile interface.
-
-config TINKER_ENTERPRISE
-	bool "Enterprise domain state"
-	depends on TINKER_CORE
-	default y
-	help
-	  Kernel-level enterprise domain/SSO/MFA/GPO state tracking.
-	  Provides /proc/tinker/enterprise interface.
-
-config TINKER_DRIVER_MONITOR
-	bool "Driver state monitor"
-	depends on TINKER_CORE
-	default y
-	help
-	  Kernel-level driver load/unload and version tracking.
-	  Provides /proc/tinker/drivers interface.
-
-config TINKER_HW_CERT
-	bool "Hardware certification state"
-	depends on TINKER_CORE
-	default y
-	help
-	  Kernel-level hardware test results and certification tracking.
-	  Provides /proc/tinker/cert interface.
+	  KorrinOS adaptive display.
+	  Built into the kernel image from tinker/Makefile.
 
 config TINKER_APP_STORE
-	bool "App ecosystem state"
-	depends on TINKER_CORE
-	default y
+	bool "KorrinOS App Store — kernel-level app ecosystem state"
 	help
-	  Kernel-level app store installed apps and sync tracking.
-	  Provides /proc/tinker/apps interface.
+	  KorrinOS App Store — kernel-level app ecosystem state.
+	  Built into the kernel image from tinker/Makefile.
 
-config TINKER_INSTALLER_STATE
-	bool "Installer state tracker"
-	depends on TINKER_CORE
-	default y
+config TINKER_BATTERY_LIFE
+	bool "KorrinOS battery lifespan manager"
 	help
-	  Kernel-level OS installation progress and state tracking.
-	  Provides /proc/tinker/installer interface.
+	  KorrinOS battery lifespan manager.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_CACHE_TIERING
+	bool "KorrinOS software-defined cache tiering (CAT / MPAM) hint interface"
+	help
+	  KorrinOS software-defined cache tiering (CAT / MPAM) hint interface.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_CLOUD_SYNC
+	bool "KorrinOS Cloud Sync Tracker — kernel-level cloud sync state"
+	help
+	  KorrinOS Cloud Sync Tracker — kernel-level cloud sync state.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_COIL_WHINE
+	bool "KorrinOS coil-whine killer — PWM frequency shifter hint"
+	help
+	  KorrinOS coil-whine killer — PWM frequency shifter hint.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_CXL_MEMORY
+	bool "KorrinOS unified memory over CXL"
+	help
+	  KorrinOS unified memory over CXL.
+	  Built into the kernel image from tinker/Makefile.
 
 config TINKER_DESKTOP_STATE
-	bool "Desktop environment state"
-	depends on TINKER_CORE
-	default y
+	bool "KorrinOS Desktop Environment — kernel-level desktop state"
 	help
-	  Kernel-level desktop panel/dock/theme/compositor state.
-	  Provides /proc/tinker/desktop interface.
+	  KorrinOS Desktop Environment — kernel-level desktop state.
+	  Built into the kernel image from tinker/Makefile.
 
-endif # TINKER_FEATURES
+config TINKER_DRIVER_MONITOR
+	bool "KorrinOS Driver Monitor — kernel-level driver state tracking"
+	help
+	  KorrinOS Driver Monitor — kernel-level driver state tracking.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_DUST_DISLODGER
+	bool "KorrinOS acoustic dust dislodger — resonant fan pulse interface"
+	help
+	  KorrinOS acoustic dust dislodger — resonant fan pulse interface.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_DVFS_SHAVER
+	bool "KorrinOS DVFS shaver — microsecond-scale voltage/frequency hint"
+	help
+	  KorrinOS DVFS shaver — microsecond-scale voltage/frequency hint.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_ENERGY_SCHED
+	bool "KorrinOS energy / DVFS hinting"
+	help
+	  KorrinOS energy / DVFS hinting.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_ENTERPRISE
+	bool "KorrinOS Enterprise State — kernel-level enterprise domain/SSO/MFA state"
+	help
+	  KorrinOS Enterprise State — kernel-level enterprise domain/SSO/MFA state.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_FINANCE_AUDIT
+	bool "KorrinOS finance audit — local subscription/ledger audit kernel hooks"
+	help
+	  KorrinOS finance audit — local subscription/ledger audit kernel hooks.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_FPGA_SCALER
+	bool "KorrinOS dynamic FPGA word-length (precision) scaler"
+	help
+	  KorrinOS dynamic FPGA word-length (precision) scaler.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_GAMEMODE
+	bool "KorrinOS GameMode scheduling boost"
+	help
+	  KorrinOS GameMode scheduling boost.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_HW_CERT
+	bool "KorrinOS Hardware Cert — kernel-level hardware certification state"
+	help
+	  KorrinOS Hardware Cert — kernel-level hardware certification state.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_HW_DNA
+	bool "KorrinOS hardware DNA — hardware fingerprinting"
+	help
+	  KorrinOS hardware DNA — hardware fingerprinting.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_HW_TUNING
+	bool "KorrinOS hardware tuning — low-level tuning farm"
+	help
+	  KorrinOS hardware tuning — low-level tuning farm.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_HYPERDRIVE
+	bool "HyperDrive Kernel Module — GPU Emulation Helper"
+	help
+	  HyperDrive Kernel Module — GPU Emulation Helper.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_INSTALLER_STATE
+	bool "KorrinOS Installer State — kernel-level installation tracking"
+	help
+	  KorrinOS Installer State — kernel-level installation tracking.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_MOBILE_COMPANION
+	bool "KorrinOS Mobile Companion — kernel-level phone connection state"
+	help
+	  KorrinOS Mobile Companion — kernel-level phone connection state.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_NEURAL_AUDIO
+	bool "KorrinOS neural audio — audio enhancement DSP"
+	help
+	  KorrinOS neural audio — audio enhancement DSP.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_NEURAL_SUPERRES
+	bool "KorrinOS neural super-resolution — upscale DSP frontend"
+	help
+	  KorrinOS neural super-resolution — upscale DSP frontend.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_OLED_WEAR
+	bool "KorrinOS OLED burn-in wear compensation"
+	help
+	  KorrinOS OLED burn-in wear compensation.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_PKG_TRACKER
+	bool "KorrinOS Package Tracker — kernel-level package state tracking"
+	help
+	  KorrinOS Package Tracker — kernel-level package state tracking.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_POWER_GRID
+	bool "KorrinOS smart power grid"
+	help
+	  KorrinOS smart power grid.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_PREDICT_RENDER
+	bool "KorrinOS predictive render — ahead-of-time render hint"
+	help
+	  KorrinOS predictive render — ahead-of-time render hint.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_PREWARM
+	bool "KorrinOS predictive pre-warm"
+	help
+	  KorrinOS predictive pre-warm.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_RAY_AUDIO
+	bool "KorrinOS ray-traced audio — geometric sound propagation DSP kernel"
+	help
+	  KorrinOS ray-traced audio — geometric sound propagation DSP kernel.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_REMOTE_HW
+	bool "KorrinOS remote hardware API"
+	help
+	  KorrinOS remote hardware API.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_SDGPU
+	bool "KorrinOS SD-GPU — software-defined GPU control plane"
+	help
+	  KorrinOS SD-GPU — software-defined GPU control plane.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_SHREDDER
+	bool "KorrinOS data shredder — kernel-level privacy wipe helpers"
+	help
+	  KorrinOS data shredder — kernel-level privacy wipe helpers.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_THERMAL_SCHED
+	bool "KorrinOS thermal-aware scheduling hints"
+	help
+	  KorrinOS thermal-aware scheduling hints.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_UNIFIED_MEM
+	bool "KorrinOS unified memory — software-defined heterogeneous memory pool"
+	help
+	  KorrinOS unified memory — software-defined heterogeneous memory pool.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_UPDATE_MONITOR
+	bool "KorrinOS Update Monitor — kernel-level update state and scheduling"
+	help
+	  KorrinOS Update Monitor — kernel-level update state and scheduling.
+	  Built into the kernel image from tinker/Makefile.
+
+config TINKER_ZERO_LATENCY
+	bool "KorrinOS zero-latency input path"
+	help
+	  KorrinOS zero-latency input path.
+	  Built into the kernel image from tinker/Makefile.
+

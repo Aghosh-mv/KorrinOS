@@ -29,6 +29,7 @@ obj-$(CONFIG_TINKER_NEURAL_SUPERRES)	+= neural_super_res.o
 obj-$(CONFIG_TINKER_PREDICT_RENDER)	+= predictive_render.o
 obj-$(CONFIG_TINKER_REMOTE_HW)		+= remote_hardware_api.o
 obj-$(CONFIG_TINKER_SDGPU)		+= sdgpu.o
+obj-$(CONFIG_TINKER_HYPERDRIVE)	+= hyperdrive.o
 obj-$(CONFIG_TINKER_FINANCE_AUDIT)	+= finance_audit.o
 obj-$(CONFIG_TINKER_PKG_TRACKER)	+= pkg_tracker.o
 obj-$(CONFIG_TINKER_UPDATE_MONITOR)	+= update_monitor.o
