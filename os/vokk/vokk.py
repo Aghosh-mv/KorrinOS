@@ -9,12 +9,6 @@ HAS_RNN = True
 HAS_CU = False
 HAS_SEARCH = True
 
-try:
-    import computer_use
-    HAS_CU = True
-except:
-    pass
-
 # Minimal TinkerTokenizer
 class TinkerTokenizer:
     def __init__(self):
@@ -202,11 +196,16 @@ class TinkerHarness:
                 if vec is not None:
                     self.embed_vecs[tool.name] = vec
         if HAS_SEARCH and ts:
+            # `qa_vecs` was a bare name, not `self.qa_vecs`, so this raised
+            # NameError - and the bare `except:` below swallowed it, so the
+            # document index was silently never built and search returned
+            # nothing at all. Fixed the name, and made the except specific so
+            # the next failure here is visible instead of invisible.
             try:
                 for doc in ts.docs[:200]:
-                    qa_vecs.append((doc, ts._embed(doc)))
-            except:
-                pass
+                    self.qa_vecs.append((doc, ts._embed(doc)))
+            except Exception as error:  # noqa: BLE001 - search must not be fatal
+                print(f"[vokk] search index incomplete: {error}", file=sys.stderr)
 
     # Handler methods - ALL of them
     def _t_cpu(self, _=None):
@@ -393,17 +392,6 @@ class TinkerHarness:
             return "Searching web for: " + query
         return "Usage: search for [query]"
 
-    def _t_search_ai(self, args):
-        # Answer a question from local knowledge
-        query = args.get('query', '')
-        if query:
-            if HAS_SEARCH and ts:
-                ans, sc, _ = ts.answer(query)
-                if ans:
-                    return ans
-            return "Local knowledge search found no exact match for '" + query + "'."
-        return "Usage: ask me a question"
-
     def _t_list_apps(self, _=None):
         # List installed applications
         try:
@@ -465,8 +453,15 @@ class TinkerHarness:
         return "Current volume is " + (out.stdout.strip() or "unknown") + "." if out.stdout else "Audio mixer unavailable."
 
     def _t_search_ai(self, args):
-        # Answer a question from local knowledge
+        # Answer a question from local knowledge.
+        #
+        # The empty-query guard was lost when a second definition of this method
+        # shadowed a better first one; the dead copy has been removed and the
+        # guard is back, so an empty question gets a usage hint instead of
+        # "found no exact match for ''".
         query = args.get('query', '')
+        if not query:
+            return "Usage: ask me a question"
         if HAS_SEARCH and ts:
             ans, sc, _ = ts.answer(query)
             if ans:
@@ -547,7 +542,6 @@ class TinkerHarness:
                 proc.stdin.flush()
                 line = proc.stdout.readline().strip()
                 if line.startswith("{"):
-                    import json
                     return json.loads(line)
         except:
             return {"reply": "Error communicating", "plan": "error"}
