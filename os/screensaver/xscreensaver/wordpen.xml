@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  KorrinOS wordpen, as an xscreensaver module.
+
+  xscreensaver is the real Linux substrate for this, so the saver inherits the
+  honest contract it already provides: the process runs while the user is idle
+  and exits the moment they touch anything. There is no wallpaper twin and no
+  resident background process, which is the failure mode that makes people
+  disable screensavers entirely.
+-->
+<id>co.korrinos.wordpen</id>
+<watchDirectory>/usr/share/korrinos/wordpen</watchDirectory>
+<author email="dev@korrinos.invalid">KorrinOS</author>
+<name>Wordpen</name>
+<description>A pen writes one word, in one of the shipped languages, in a random colour.</description>
+<directory>wordpen</directory>
+<file>wordpen.sh</file>
+<options>
+  <screenshot/>
+</options>

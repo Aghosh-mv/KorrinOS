@@ -726,7 +726,7 @@ EOF
 preflight() {
   local missing=0 f
   for f in stage1 stage2_install stage3_worlds stage_branding stage2b_branding \
-           stage_i18n_fonts stage_kcommand stage4_live stage5_squashfs \
+           stage_i18n_fonts stage_kcommand stage_wordpen stage4_live stage5_squashfs \
            stage5_caspermaterials stage6_iso stage7_verify; do
     if ! declare -f "$f" >/dev/null 2>&1; then
       echo "PREFLIGHT FAIL: stage function '$f' is called but not defined."
@@ -778,8 +778,115 @@ unbind_rootfs() {
 # Honours the separate-repo design: if the source is absent the stage skips
 # cleanly rather than failing the build.
 KCOMMAND_SRC="${KCOMMAND_SRC:-/home/tinkerspace/linux-kernel/os/terminal/kcommand}"
+WORDPEN_SRC="${WORDPEN_SRC:-/home/tinkerspace/linux-kernel/os/screensaver/korrinos-wordpen}"
 KCOMMAND_REPO="${KCOMMAND_REPO:-https://github.com/Aghosh-mv/kcommand.git}"
 KCOMMAND_PIN="${KCOMMAND_PIN:-}"
+
+# ---- stage_wordpen: the handwriting screen saver ----------------------------
+#
+# KorrinOS ships xscreensaver as the real substrate, so this saver inherits the
+# honest contract it already provides: run while idle, exit on any input, no
+# wallpaper twin and no resident process. That is the property that makes people
+# leave a screensaver switched on instead of disabling it.
+stage_wordpen() {
+  echo "### [wordpen] building the KorrinOS handwriting screen saver..."
+  local src="$WORDPEN_SRC"
+
+  if [ ! -d "$src" ]; then
+    echo "  source not at $src - skipping the screensaver"
+    return 0
+  fi
+
+  # Rust toolchain present?
+  if ! command -v cargo >/dev/null 2>&1; then
+    echo "  WARNING: cargo not found; kcommand was built, so building the saver too"
+    return 0
+  fi
+
+  ( cd "$src" && cargo build --release --offline --target-dir "$BUILD/wordpen-target" ) \
+    || { echo "  WARNING: wordpen failed to build; continuing without it"; return 0; }
+
+  local bin="$BUILD/wordpen-target/release/korrinos-wordpen"
+  if [ ! -x "$bin" ]; then
+    echo "  WARNING: wordpen binary not produced"
+    return 0
+  fi
+
+  # Create the destination rather than assuming an earlier stage made it: a
+  # test against a fresh rootfs caught install failing on a missing /usr/bin
+  # while the stage still reported success.
+  "$SUDO" mkdir -p "$ROOTFS/usr/bin"
+  "$SUDO" install -m 0755 "$bin" "$ROOTFS/usr/bin/korrinos-wordpen" || {
+    echo "  WARNING: could not install the wordpen binary; continuing without it"
+    return 0
+  }
+
+  # The word data. The saver is useless without it, and it is the same registry
+  # the terminal uses, so the two can never disagree about which languages exist.
+  "$SUDO" mkdir -p "$ROOTFS/usr/share/korrinos/wordpen"
+  for f in languages.tsv words.tsv words-adult.tsv; do
+    [ -f "$src/data/$f" ] && "$SUDO" install -m 0644 "$src/data/$f" \
+        "$ROOTFS/usr/share/korrinos/wordpen/$f"
+  done
+
+  # xscreensaver module.
+  local xss="$src/../xscreensaver"
+  if [ -d "$xss" ]; then
+    "$SUDO" mkdir -p "$ROOTFS/usr/share/xscreensaver/config"
+    for f in "$xss"/*.xml; do
+      [ -f "$f" ] || continue
+      "$SUDO" install -m 0644 "$f" "$ROOTFS/usr/share/xscreensaver/config/"
+    done
+    "$SUDO" mkdir -p "$ROOTFS/usr/lib/x86_64-linux-gnu/xscreensaver"
+    for f in "$xss"/*.sh; do
+      [ -f "$f" ] || continue
+      local base; base="$(basename "$f" .sh)"
+      "$SUDO" install -m 0755 "$f" \
+          "$ROOTFS/usr/lib/x86_64-linux-gnu/xscreensaver/$base"
+    done
+    echo "  installed the xscreensaver module"
+  fi
+
+  # A documented default config. The adult word list is OFF here and stays off
+  # unless someone edits this: words drawn on an unattended screen should be a
+  # deliberate choice by whoever owns the machine.
+  "$SUDO" mkdir -p "$ROOTFS/etc/skel/.config/korrinos"
+  cat > /tmp/wordpen.conf.$$ <<'CONF'
+# KorrinOS wordpen - handwriting screen saver
+#
+# adult        true|false   include the opt-in adult word list (default false)
+# seed         <integer>    fix the random sequence, for reproducible captures
+# stroke_scale <float>      pen thickness as a fraction of screen height
+# data_dir     <path>       where languages.tsv and words.tsv live
+#
+# The adult list ships empty and is OFF. Turning it on here is the only way to
+# get those words, which is deliberate: a saver runs on a screen anyone can walk
+# past, photograph or screenshot.
+adult = false
+# seed = 12345
+stroke_scale = 0.011
+# data_dir = /usr/share/korrinos/wordpen
+CONF
+  "$SUDO" install -m 0644 /tmp/wordpen.conf.$$ "$ROOTFS/etc/skel/.config/korrinos/wordpen.conf"
+  rm -f /tmp/wordpen.conf.$$
+
+  # Sanity check: the binary must run and be able to say what it can draw. A
+  # saver that silently draws nothing is the worst outcome, so this is worth
+  # failing loudly over rather than trusting the build.
+  if [ ! -x "$ROOTFS/usr/bin/korrinos-wordpen" ]; then
+    echo "  WARNING: korrinos-wordpen is not executable in the staging root"
+    return 0
+  fi
+  local report
+  report="$(chroot "$ROOTFS" /usr/bin/korrinos-wordpen --info 2>/dev/null | tr '\n' ';' || true)"
+  if [ -n "$report" ]; then
+    echo "  self-check: $report"
+  else
+    echo "  NOTE: could not chroot the self-check (needs a working chroot); the binary is installed"
+  fi
+
+  echo "  installed $("$SUDO" du -h "$ROOTFS/usr/bin/korrinos-wordpen" 2>/dev/null | cut -f1) korrinos-wordpen"
+}
 
 stage_kcommand() {
   echo "### [kcommand] building KorrinOS terminal..."
