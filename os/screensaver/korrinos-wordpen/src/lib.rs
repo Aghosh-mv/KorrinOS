@@ -20,6 +20,8 @@
 //!   languages, instead of hand-authoring strokes per script.
 //! - [`engine`] — the pure part: word choice, colour, layout, and the frame
 //!   timeline. No IO, no window, fully testable without a display.
+//! - [`render`] — rasterises strokes and writes PNG, so a frame can be looked at
+//!   even on a machine with no screen.
 //!
 //! # What it is not
 //!
@@ -34,6 +36,7 @@
 pub mod cmap;
 pub mod engine;
 pub mod outline;
+pub mod render;
 pub mod words;
 
 pub use engine::{Choice, Frame, Language, Rgb, Rng, Scene, WordBank};

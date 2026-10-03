@@ -130,6 +130,11 @@ pub fn scene_duration() -> f64 {
 /// than running off the edge.
 pub fn build_scene(word: &str, font: &Font, width: f64, height: f64, colour: Rgb) -> Option<Scene> {
     let mut polylines = Vec::new();
+    // Each glyph's contours are in its OWN font-unit space, so they must be
+    // shifted by the accumulated advance before they can be laid out together.
+    // Without this every letter is drawn at the origin and they pile up on top
+    // of one another, which is exactly what the first rendered frame showed.
+    let mut pen_x = 0.0f64;
     let mut used_glyphs = 0usize;
 
     for ch in word.chars() {
@@ -138,16 +143,18 @@ pub fn build_scene(word: &str, font: &Font, width: f64, height: f64, colour: Rgb
             used_glyphs += 1;
         }
         for contour in &glyph.contours {
-            // Contours are closed in the font; a pen does not close them, it
-            // lifts, so we keep the contour open.
-            let points: Vec<(f64, f64)> =
-                contour.points.iter().map(|p| (p.x, p.y)).collect();
+            // Contours are closed in the font; a pen lifts and does not close,
+            // so the contour is kept open.
+            let points: Vec<(f64, f64)> = contour
+                .points
+                .iter()
+                .map(|p| (p.x + pen_x, p.y))
+                .collect();
             polylines.push(points);
         }
-        // Note: layout is driven by the drawn outline's bounding box, not by
-        // the accumulated advance. That is what keeps a word with wide
-        // side-bearing letters (an 'A', say) from overhanging the edge.
+        pen_x += glyph.advance;
     }
+
     if polylines.is_empty() {
         return None;
     }
@@ -171,23 +178,41 @@ pub fn build_scene(word: &str, font: &Font, width: f64, height: f64, colour: Rgb
         return None;
     }
 
-    // The word is wide, so fit on width first, then use whatever height remains.
+    // Fit the word to whichever axis runs out first.
     let text_w = max_x - min_x;
     let text_h = max_y - min_y;
     if text_w <= 0.0 || text_h <= 0.0 {
         return None;
     }
-    let margin = 0.12;
-    let scale_w = (width * (1.0 - margin * 2.0)) / text_w;
-    let scale_h = (height * (1.0 - margin * 2.0)) / (text_h * 2.2);
+    // A word is usually much wider than it is tall, so width is usually the
+    // binding constraint. Height only matters for a single narrow letter, where
+    // this is what stops an 'H' being drawn postage-stamp small in the middle
+    // of the screen. There is deliberately no fudge factor on the height fit:
+    // an earlier version divided by 2.2, which made single letters tiny.
+    let margin_x = 0.10;
+    let margin_y = 0.18;
+    let scale_w = (width * (1.0 - margin_x * 2.0)) / text_w;
+    let scale_h = (height * (1.0 - margin_y * 2.0)) / text_h;
     let scale = scale_w.min(scale_h);
 
     let drawn_w = text_w * scale;
     let drawn_h = text_h * scale;
-    let offset_x = (width - drawn_w) / 2.0 - min_x * scale;
-    // Sit slightly above centre: a line of text optically centres above the
-    // mathematical middle.
-    let offset_y = (height + drawn_h * 0.35) / 2.0 - min_y * scale;
+    // Centre the drawn box exactly, then clamp it inside the viewport.
+    //
+    // An earlier version nudged the baseline down for optical centring, which
+    // put the last few pixels off the bottom of an ultrawide screen: the nudge
+    // is fine for a wide word but is not bounded, so on a 3440x1440 viewport the
+    // text ran off. Centring on the actual bounding box and clamping cannot go
+    // out of range at any aspect ratio.
+    let mut offset_x = (width - drawn_w) / 2.0 - min_x * scale;
+    let mut offset_y = (height - drawn_h) / 2.0 - min_y * scale;
+    let slack_x = (width * margin_x).max(0.0);
+    let slack_y = (height * margin_y).max(0.0);
+    // left edge = min_x*scale + offset_x, so clamp that into [slack, width-slack-drawn]
+    let left = min_x * scale + offset_x;
+    offset_x += (slack_x - left).clamp(-(left - slack_x), width - slack_x - drawn_w - left);
+    let top = min_y * scale + offset_y;
+    offset_y += (slack_y - top).clamp(-(top - slack_y), height - slack_y - drawn_h - top);
 
     let mut total_length = 0.0;
     let mut laid_out = Vec::with_capacity(polylines.len());
@@ -432,9 +457,11 @@ mod tests {
         let scene = build_scene("HELLO", &font, 1920.0, 1080.0, Rgb(9, 9, 9)).unwrap();
         let mut drawn = 0usize;
         let mut previous = 0usize;
-        for step in 0..=100 {
+        // Stop short of DRAW_SECONDS itself: at exactly that point the scene
+        // has finished drawing and frame() returns Holding, not Drawing.
+        for step in 0..100 {
             let Frame::Drawing { strokes, .. } =
-                frame(&scene, step as f64 / 100.0 * DRAW_SECONDS)
+                frame(&scene, step as f64 / 100.0 * DRAW_SECONDS * 0.99)
             else {
                 panic!("expected drawing at {step}");
             };

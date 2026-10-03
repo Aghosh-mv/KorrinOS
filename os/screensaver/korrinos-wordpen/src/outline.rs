@@ -161,7 +161,7 @@ impl Font {
         let index_to_loc = i16be(&data, head_off + 50)?;
         let long_loca = index_to_loc != 0;
         let (loca_off, loca_len) = find(b"loca")?;
-        let (glyf_off, _) = find(b"glyf")?;
+        let (glyf_off, glyf_len) = find(b"glyf")?;
         let (hmtx_off, hmtx_len) = find(b"hmtx")?;
         let (hhea_off, _) = find(b"hhea")?;
         let num_h_metrics = u16be(&data, hhea_off + 34)? as usize;
@@ -173,14 +173,16 @@ impl Font {
             if off.checked_add(len)? <= data.len() { Some(()) } else { None }
         };
         need(loca_off, loca_len)?;
-        need(glyf_off, data.len())?;
+        // This was `need(glyf_off, data.len())`, which can never be true, so
+        // Font::parse rejected every real font. Use the table's real length.
+        need(glyf_off, glyf_len)?;
         need(hmtx_off, hmtx_len)?;
 
         let cmap = super::cmap::Cmap::from_ranges(super::cmap::parse_cmap_ranges(&data, cmap_off)?);
 
         Some(Font {
             loca: data[loca_off..loca_off + loca_len].to_vec(),
-            glyf: data[glyf_off..].to_vec(),
+            glyf: data[glyf_off..glyf_off + glyf_len].to_vec(),
             hmtx: data[hmtx_off..hmtx_off + hmtx_len].to_vec(),
             num_h_metrics,
             units_per_em,
@@ -404,17 +406,27 @@ fn flatten_contour(raw: &[Point]) -> Option<Contour> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     /// A real font, if this machine has one. Tests that need it skip cleanly.
+    /// A real font, or `None` when this machine has none.
+    ///
+    /// This deliberately PANICS if a font file exists but will not parse. An
+    /// earlier version returned `None` on a parse failure, which made every
+    /// "real font" test below silently pass while testing nothing at all - the
+    /// tests looked green and proved nothing.
     fn real_font() -> Option<Font> {
         for path in [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         ] {
-            if let Ok(data) = std::fs::read(path) {
-                if let Some(font) = Font::parse(data) {
-                    return Some(font);
-                }
+            if !Path::new(path).is_file() {
+                continue;
+            }
+            let data = std::fs::read(path).expect("font is readable");
+            match Font::parse(data) {
+                Some(font) => return Some(font),
+                None => panic!("{path} exists but Font::parse rejected it"),
             }
         }
         None
@@ -490,11 +502,21 @@ mod tests {
     #[test]
     fn a_missing_codepoint_is_absent_not_wrong() {
         let Some(font) = real_font() else { return };
-        // U+1F600 is far outside a Latin font's coverage.
-        assert!(
-            font.glyph_for_char('\u{1F600}').is_none(),
-            "an uncovered codepoint must report None, never an empty box"
-        );
+        // Verified against the real files: DejaVu maps U+1F600 (it carries
+        // monochrome symbol glyphs), but has NO run for CJK, Thai, Hangul,
+        // Devanagari or Hiragana. Those are the honest uncovered cases.
+        for (cp, label) in [
+            ('\u{4E00}', "CJK"),
+            ('\u{0E01}', "Thai"),
+            ('\u{AC00}', "Hangul"),
+            ('\u{093F}', "Devanagari"),
+            ('\u{3042}', "Hiragana"),
+        ] {
+            assert!(
+                font.glyph_for_char(cp).is_none(),
+                "{label} is not in a Latin font, so it must report None, not an empty box"
+            );
+        }
     }
 
     #[test]
