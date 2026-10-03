@@ -76,8 +76,8 @@
                 border: 1px solid #4c566a;
             ">
                 <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                    <span style="font-size: 24px; margin-right: 10px;"></span>
-                    <strong style="font-size: 16px;">KorrinOS Password Manager</strong>
+                    <span style="font-size:1.5rem; margin-right: 10px;"></span>
+                    <strong style="font-size:1rem;">KorrinOS Password Manager</strong>
                 </div>
                 <p style="margin: 0 0 15px 0; color: #a6accd;">
                     Password field detected on <strong>${window.location.hostname}</strong>

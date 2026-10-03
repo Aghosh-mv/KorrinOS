@@ -1,5 +1,5 @@
 
-/* TinkerOS Qt Stylesheet */
+/* KorrinOS Qt Stylesheet */
 QWidget { background-color: #0D0D12; color: #FFFFFF; font-family: "Inter"; }
 QPushButton { background-color: #00D4AA; color: #000000; border: none; border-radius: 8px; padding: 10px 20px; font-weight: 600; }
 QPushButton:hover { background-color: #33E0C0; }

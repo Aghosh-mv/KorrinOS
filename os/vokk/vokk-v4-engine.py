@@ -283,7 +283,7 @@ class IntentClassifier:
         confidence = min(scores[best_intent] / 3.0, 1.0)
         return best_intent, confidence
 
-class VOKK v4:
+class VokkV4:
     def __init__(self, data_dir: str = None):
         self.data_dir = Path(data_dir or os.path.expanduser("~/.tinker/ai"))
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -447,9 +447,9 @@ Just ask naturally!"""
         
         return "I understand. Let me help you with that. Could you be more specific about what you'd like me to do?"
 
-class VOKK v4Server:
+class VokkV4Server:
     """HTTP API server for VOKK v4"""
-    def __init__(self, ai: VOKK v4, host: str = "127.0.0.1", port: int = 8765):
+    def __init__(self, ai: VokkV4, host: str = "127.0.0.1", port: int = 8765):
         self.ai = ai
         self.host = host
         self.port = port
@@ -488,7 +488,7 @@ class VOKK v4Server:
             print(f"Server error: {e}")
 
 def main():
-    ai = VOKK v4()
+    ai = VokkV4()
     
     # Try to load a model
     if ai.model_manager.check_llama_cpp():

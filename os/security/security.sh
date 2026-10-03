@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 show_header() {
     clear
     echo "=========================================="
-    echo "     TINKEROS SECURITY SUITE"
+    echo "     KORRINOS SECURITY SUITE"
     echo "     macOS-like protection for Linux"
     echo "=========================================="
     echo ""

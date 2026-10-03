@@ -180,7 +180,7 @@ create_boot_images() {
     if [ ! -f "$BUILD_DIR/boot/grub/efi.img" ]; then
         local efiimg="$BUILD_DIR/boot/grub/efi.img"
         dd if=/dev/zero of="$efiimg" bs=1M count=6 status=none 2>/dev/null || true
-        if mformat -i "$efiimg" -v TINKEROS 2>/dev/null; then
+        if mformat -i "$efiimg" -v KORRINOS 2>/dev/null; then
             local mdir; mdir=$(mktemp -d)
             mkdir -p "$mdir/EFI/boot" "$mdir/boot/grub"
             # build the EFI core image from the installed modules (no standalone binary needed)

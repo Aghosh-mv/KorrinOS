@@ -18,8 +18,13 @@ if [ ! -x "$(command -v cargo-flamegraph)" ]; then
     installed_flamegraph=1
 fi
 
-# Create flamegraph
-cargo flamegraph --bin=alacritty -- $@
+# Create flamegraph.
+#
+# "-- $@" is quoted: unquoted, every argument is re-split on whitespace, so a
+# path containing a space arrives as two arguments and the profile is of nothing.
+# The binary is kcommand - this is a KorrinOS fork of Alacritty and the target
+# was renamed, so --bin=alacritty no longer exists and cargo fails outright.
+cargo flamegraph --bin=kcommand -- "$@"
 
 # Uninstall cargo-flamegraph if it has been installed with this script
 if [ $installed_flamegraph == 1 ]; then

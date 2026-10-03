@@ -88,7 +88,7 @@ except:
 
 HAS_SEARCH = True
 try:
-    import tinker_search_ai as ts_mod
+    import vokk_search as ts_mod
     ts = ts_mod.TinkerSearchAI()
     ts.load()
 except:

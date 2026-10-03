@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# korrinos-launch <app> — dispatch a desktop grid tile to its REAL app bin.
+# Only welds bytes that EXIST on disk. No filler, no invention, no smoke:
+#   - a tile with a REAL matching bin -> execs that bin (real bytes deliver)
+#   - a tile with NO bin           -> says so (DEAD) rather than fake a launch
+set -u
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"      # -> os/
+APPS="$ROOT/apps"
+ALIASES=(               # tile-name -> real bin on disk (both must resolve)
+  "store:app-store.sh"  # real: apps/app-store.sh         (11KB, on disk)
+  "files:file-manager.sh" # real: apps/file-manager.sh    (5KB, on disk)
+)
+
+name="${1:-}"; [ -n "$name" ] || { echo "korrinos-launch: no app given"; exit 2; }
+
+# 1) direct bin (tile name == bin name, e.g. if we ever add one)
+for c in "$APPS/$name" "$APPS/$name.sh"; do
+  [ -x "$c" ] && { exec "$c"; }
+done
+
+# 2) honest alias table (the weld: real bins under different names)
+for a in "${ALIASES[@]}"; do
+  tile="${a%%:*}"; bin="${a#*:}"
+  if [ "$name" = "$tile" ]; then
+    if [ -x "$APPS/$bin" ]; then
+      exec "$APPS/$bin"
+    else
+      echo "korrinos-launch: tile '$name' lists alias '$bin' but that bin is NOT on disk (refusing to fake-launch)."; exit 3
+    fi
+  fi
+done
+
+# 3) nothing matched — honest DEAD, never a fake success
+echo "korrinos-launch: tile '$name' has no real bin under $APPS — DEAD (not shipped)."; exit 3

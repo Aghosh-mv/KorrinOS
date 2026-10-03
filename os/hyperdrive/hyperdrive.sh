@@ -17,6 +17,14 @@ HD_LOG="/var/log/hyperdrive.log"
 R='\033[1;31m'; G='\033[1;32m'; Y='\033[1;33m'; B='\033[1;34m'
 C='\033[1;36m'; M='\033[1;35m'; W='\033[1;37m'; NC='\033[0m'
 
+# Tunables. These MUST be real shell variables: the script runs under
+# `set -u`, so referencing a name that only ever appears inside a heredoc
+# (e.g. vram_size=2048 written into a config file) aborts the script with
+# "unbound variable".
+VRAM_SIZE_MB="${VRAM_SIZE_MB:-2048}"
+ZRAM_ALGORITHM="${ZRAM_ALGORITHM:-lz4}"
+HAS_ZRAM="${HAS_ZRAM:-false}"   # detect_hardware() overrides this
+
 banner() {
     echo -e "${C}"
     echo "╔═══════════════════════════════════════════════════════════════╗"
@@ -170,8 +178,8 @@ CONF
 # ============================================================
 setup_zram_vram() {
     echo -e "${B}Setting up zRAM VRAM Emulation...${NC}"
-    
-    if [ "$HAS_ZRAM" = true ]; then
+
+    if [ "${HAS_ZRAM:-false}" = true ]; then
         cat > "$HD_DIR/config/zram_vram.conf" << 'CONF'
 # HyperDrive zRAM VRAM Emulation
 # Uses compressed RAM as virtual VRAM
@@ -206,10 +214,11 @@ CONF
     sudo mkswap /dev/zram0 2>/dev/null || true
     sudo swapon /dev/zram0 2>/dev/null || true
     
-    echo -e "  ${G}zRAM VRAM: configured (${vram_size}MB compressed)${NC}"
+    echo -e "  ${G}zRAM VRAM: configured (${VRAM_SIZE_MB}MB compressed)${NC}"
 else
     echo -e "  ${Y}zRAM not available — VRAM emulation disabled${NC}"
 fi
+}
 
 # ============================================================
 #  PILLAR 4: CPU MICRO-OPTIMIZATION FOR GPU EMULATION

@@ -685,7 +685,7 @@ queue_list() {
 }
 
 queue_clear() {
-  > "$UPDATE_QUEUE"
+  : > "$UPDATE_QUEUE"
   echo "Queue cleared."
 }
 

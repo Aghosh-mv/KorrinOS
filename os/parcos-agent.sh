@@ -12,7 +12,7 @@ set -euo pipefail
 OC="${OPencode:-$HOME/.opencode/bin/opencode}"
 [ -x "$OC" ] || { echo "opencode binary not found at $OC"; exit 1; }
 
-WORK_TREE="${TINKEROS_TREE:-$HOME/linux-kernel}"
+WORK_TREE="${KORRINOS_TREE:-$HOME/linux-kernel}"
 [ -d "$WORK_TREE" ] || WORK_TREE="$HOME"
 
 pop() {

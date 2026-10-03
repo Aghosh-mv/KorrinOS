@@ -177,7 +177,8 @@ delete_backup() {
     local name=$1
     
     if [ -d "$BACKUP_DIR/$name" ]; then
-        rm -rf "$BACKUP_DIR/$name"
+        # :? so an unset BACKUP_DIR cannot delete "/$name".
+        rm -rf "${BACKUP_DIR:?}/$name"
         echo "Deleted: $name"
     else
         echo "Backup not found: $name"

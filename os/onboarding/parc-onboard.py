@@ -418,7 +418,7 @@ def run_cli_onboarding():
     """Text-based onboarding for systems without GUI"""
     print("""
 ╔══════════════════════════════════════════════════════════════╗
-║                       TINKEROS SETUP                        ║
+║                      KORRINOS SETUP                      ║
 ║                  Your Computer. Your Rules.                   ║
 ╚══════════════════════════════════════════════════════════════╝
     """)
@@ -467,7 +467,7 @@ def run_cli_onboarding():
     
     print(f"""
 ╔══════════════════════════════════════════════════════════════╗
-║                     TINKEROS READY!                         ║
+║                     KORRINOS READY!                      ║
 ║                                                              ║
 ║  Username: {state.username:<40} ║
 ║  Theme: {state.theme:<43} ║

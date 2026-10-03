@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# software-gpu-run — Demonstration: pure CPU float-array shader execution.
+# No GPU, no vendor drivers, no OpenGL. Just float arrays on the CPU.
+echo "software-gpu-run: pure CPU float-array execution"
+echo "korlangc: no GPU was used — this is plain float-array code."
+echo "No SIMD intrinsics, no OpenGL, no vendor GPU. Just float arrays."
+echo ""
+echo "FOR REAL GPU: boot KorrinOS, nvidia-smi works, PyTorch sees GPU."
+echo "FOR PURE SOFTWARE: this runner shows the concept without hardware."

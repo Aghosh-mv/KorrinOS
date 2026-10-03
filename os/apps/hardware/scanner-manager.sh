@@ -92,7 +92,10 @@ show_help() {
 init
 
 case "$1" in
-    detect|scan) detect ;;
+    # "scan" must NOT be listed here. The arm below is `scan|pdf)`, so putting
+    # scan up here shadowed it: `scanner-manager scan` ran detection instead of
+    # scanning, even though show_help documents "scan [output]  Scan to PDF".
+    detect) detect ;;
     scan|pdf) scan "$2" "$3" ;;
     image|img) scan_image "$2" "$3" ;;
     test) test ;;

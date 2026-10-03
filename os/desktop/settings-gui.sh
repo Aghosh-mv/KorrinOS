@@ -126,8 +126,13 @@ show_display() {
     echo "  DISPLAY"
     echo "═══════════════════════════════════════════════════════════"
     echo ""
-    echo "  Resolution: $(xrandr 2>/dev/null | grep '*' | head -1 | awk '{print $1}')"
-    echo "  Refresh Rate: $(xrandr 2>/dev/null | grep '*' | head -1 | awk '{print $2}')"
+    # grep '*' is a REGEX, where a lone asterisk is a dangling quantifier and
+    # matches nothing. xrandr marks the active output with a literal '*', so it
+    # has to be escaped or the whole expression is just wrong.
+    local active_output
+    active_output="$(xrandr 2>/dev/null | grep -F '*' | head -1)"
+    echo "  Resolution: $(echo "$active_output" | awk '{print $1}')"
+    echo "  Refresh Rate: $(echo "$active_output" | awk '{print $2}')"
     echo "  Brightness: $(cat /sys/class/backlight/*/brightness 2>/dev/null || echo 'N/A')"
     echo ""
     echo "  1) Change resolution"

@@ -7,8 +7,8 @@ Instead of a developer terminal, this gives you a clean dark-themed window with
 quick-action buttons and a live chat, talking to the agent over a JSON pipe.
 
 Usage:
-  python3.10 tinker_ui.py                 # GUI (requires tkinter)
-  python3.10 tinker_ui.py --cli-fallback  # if tkinter is missing, use CLI
+  python3.10 vokk_ui.py                 # GUI (requires tkinter)
+  python3.10 vokk_ui.py --cli-fallback  # if tkinter is missing, use CLI
 
 The agent subprocess is launched with `python3` (numpy build).
 """

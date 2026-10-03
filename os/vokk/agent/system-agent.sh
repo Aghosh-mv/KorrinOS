@@ -241,7 +241,7 @@ def main():
     canvas = UnifiedCanvas()
     
     print("╔══════════════════════════════════════════════════════════╗")
-    print("║         KorrinOS AI SIDEBAR (Ctrl+Space)              ║")
+    print("║             KorrinOS AI SIDEBAR (Ctrl+Space)             ║")
     print("╠══════════════════════════════════════════════════════════╣")
     print("║  Type or speak what you want to do.                   ║")
     print("║  Examples:                                            ║")

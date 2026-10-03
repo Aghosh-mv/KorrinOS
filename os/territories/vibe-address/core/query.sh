@@ -90,7 +90,18 @@ ve_query_resolve_time() {
 ve_query_resolve_cat() {
   local tokens="$1"
   local cat=""
-  # direct category mention
+  # Direct category mention.
+  #
+  # Each keyword may appear in exactly ONE arm. They used to overlap: "clip" was
+  # in both media:video and mem:notes, and "saved" was in both mem:notes and
+  # net:bookmarks, so the earlier arm always won and the later meaning was
+  # unreachable - a saved clip could never be found, and "saved link" was
+  # swallowed by "saved" before net:bookmarks was ever consulted.
+  #
+  # "clip" is genuinely ambiguous and the common reading is video, so it stays
+  # there and mem:notes keeps the unambiguous "note". For bookmarks the
+  # two-word "saved link" is kept, because that IS the bookmark query, and the
+  # bare "saved" is given up so it can fall through to synonym resolution.
   case "$tokens" in
     *"image"*|*"photo"*|*"picture"*|*"drawing"*) cat="files:image" ;;
     *"video"*|*"movie"*|*"clip"*)                 cat="media:video" ;;
@@ -103,8 +114,8 @@ ve_query_resolve_cat() {
     *"download"*|*"dl"*)                          cat="net:downloads" ;;
     *"tab"*|*"browser"*|*"web"*|*"page"*)        cat="net:tab" ;;
     *"search"*|*"query"*|*"looked"*)              cat="mem:search" ;;
-    *"note"*|*"clip"*|*"saved"*)                  cat="mem:notes" ;;
-    *"link"*|*"bookmark"*|*"saved link"*)         cat="net:bookmarks" ;;
+    *"note"*)                                     cat="mem:notes" ;;
+    *"bookmark"*|*"saved link"*)                  cat="net:bookmarks" ;;
     *"folder"*|*"dir"*|*"directory"*)             cat="files:folder" ;;
   esac
   # also try synonym resolution

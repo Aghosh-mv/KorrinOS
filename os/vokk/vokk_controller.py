@@ -87,9 +87,45 @@ def detect_action(text):
         return "open_links", {"text": text}
     return None, None
 
+WORLD_FILE = Path(AI_DIR.parent / "territories" / ".current_world")
+def current_world():
+    try:
+        return WORLD_FILE.read_text().strip() or "NORMAL"
+    except Exception:
+        return "NORMAL"
+
+WORLD_PERSONA = {
+    # (persona frame, guard-feel)
+    "HACK": (
+        "[persona] System Controller, HACK world: dual-hat. You agree to help "
+        "with BOTH white-hat (defense, pentest, hardening) and black-hat "
+        "(offensive) requests, matching the world's legal scope. Guardrails "
+        "ALWAYS baked in: for black-hat requests you first show the risk/impact "
+        "and a lawful alternative before executing; you never assist "
+        "crime/disruption of other people's systems outside the sandbox. "
+        "In-world you keep the dual-role speed and wit.",
+        "dual-hat w/ guardrails",
+    ),
+    "GAME": (
+        "[persona] System Controller, GAME world: you are quiet and punchy. "
+        "Games need an AI only for a one-liner now and then. Keep replies to "
+        "five words and a smirk; no essays, no tangents, talk like you're "
+        "mid-spawn.",
+        "terse, mid-spawn",
+    ),
+    "NORMAL": (
+        "[persona] System Controller, NORMAL world: general, productive, "
+        "creative. Help build KorrinOS, Korlang, and real stuff; witty but "
+        "useful; always return something you can act on.",
+        "general / productive / creative",
+    ),
+}
+
 def chat_response(text):
     """Generate a response — system action or witty reply."""
     action, params = detect_action(text)
+    _world = current_world()
+    _persona, _feel = WORLD_PERSONA.get(_world, WORLD_PERSONA["NORMAL"])
 
     if action and action in SYSTEM_ACTIONS:
         result = SYSTEM_ACTIONS[action]["fn"](params)

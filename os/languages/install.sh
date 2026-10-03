@@ -7,7 +7,7 @@ INSTALL_DIR="/opt/korrinos/os/languages"
 BIN_DIR="/usr/local/bin"
 
 echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║  KorrinOS Language Integration                              ║"
+echo "║              KorrinOS Language Integration               ║"
 echo "║  Korlang + KorrinUILang                                     ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo ""

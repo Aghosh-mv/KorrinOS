@@ -126,7 +126,8 @@ for p in c['exclude']:
     echo ""
     echo "  Rotating: removing ${to_remove} old backup(s)"
     ls -1t "$backup_base" | tail -n "$to_remove" | while read -r old; do
-      rm -rf "$backup_base/$old" 2>/dev/null
+      # :? so an empty backup_base cannot become "rm -rf /<name>".
+      rm -rf "${backup_base:?}/$old" 2>/dev/null
       echo "    Removed: ${old}"
     done
   fi
@@ -270,7 +271,8 @@ cmd_delete() {
   local backup_base
   backup_base=$(python3 -c "import json,os; print(os.path.expanduser(json.load(open('$BACKUP_CONFIG'))['backup_dir']))" 2>/dev/null || echo "$HOME/.korrinos-backups")
   
-  rm -rf "$backup_base/$backup_name" "$backup_base/${backup_name}.tar.gz" 2>/dev/null
+  # :? guards both paths against an empty backup_base.
+  rm -rf "${backup_base:?}/$backup_name" "${backup_base:?}/${backup_name}.tar.gz" 2>/dev/null
   echo "Deleted backup: ${backup_name}"
   echo "$(date -Iseconds) | DELETE | ${backup_name}" >> "$BACKUP_LOG"
 }

@@ -272,7 +272,7 @@ for line in sys.stdin:
 
 # Clear history
 cmd_clear() {
-  > "$TINKERIA_HISTORY"
+  : > "$TINKERIA_HISTORY"
   echo "History cleared"
 }
 

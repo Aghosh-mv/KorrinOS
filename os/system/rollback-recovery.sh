@@ -107,7 +107,8 @@ delete_snapshot() {
     local name=$1
     
     if [ -d "$SNAPSHOTS_DIR/$name" ]; then
-        rm -rf "$SNAPSHOTS_DIR/$name"
+        # :? so an unset SNAPSHOTS_DIR cannot delete "/$name".
+        rm -rf "${SNAPSHOTS_DIR:?}/$name"
         echo "Deleted: $name"
     else
         echo "Snapshot not found: $name"

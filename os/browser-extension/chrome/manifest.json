@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "TinkerOS Password Manager",
+    "name": "KorrinOS Password Manager",
     "version": "1.0",
     "description": "Secure password generation and storage - YOUR data stays YOURS",
     "permissions": ["activeTab", "storage", "notifications", "scripting"],

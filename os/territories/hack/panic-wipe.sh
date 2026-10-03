@@ -48,7 +48,7 @@ wipe_memory() {
 # 3) clear session ephemera
 wipe_session() {
   history -c 2>/dev/null || true
-  > /tmp/tinker-amnesia.log 2>/dev/null || true
+  : > /tmp/tinker-amnesia.log 2>/dev/null || true
   rm -f "${TINKER_STATE}/territory.log" 2>/dev/null || true
   # clear ssh agent identities for the session
   ssh-add -D 2>/dev/null || true

@@ -215,7 +215,7 @@ shred_logs(){
   echo "  Log files: truncated recent"
   
   # Clear audit log of THIS operation (leave old entries)
-  > ~/.tinker/ucm/ucm.log 2>/dev/null
+  : > "$HOME/.tinker/ucm/ucm.log" 2>/dev/null || true
   echo "  UCM log: cleared"
 }
 

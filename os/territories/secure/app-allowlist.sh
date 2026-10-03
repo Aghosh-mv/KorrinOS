@@ -49,7 +49,9 @@ is_allowed() {  # is_allowed <bin>
 # command not on the allowlist bounces with a clear message.
 build_shim() {
   echo "[allowlist] Building shim (PATH prepend) for hard enforcement..."
-  rm -rf "$DENYDIR/bin"; mkdir -p "$DENYDIR/bin"
+  # Without the :? guard an empty DENYDIR turns this into "rm -rf /bin".
+  rm -rf "${DENYDIR:?}/bin"
+  mkdir -p "${DENYDIR:?}/bin"
   # find all binaries on PATH, create a wrapper for the DENYED ones
   IFS=: read -ra paths <<< "$PATH"
   local bin

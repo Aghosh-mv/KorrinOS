@@ -253,7 +253,7 @@ if not pinned:
 
 # Clear history
 cmd_clear() {
-  > "$CLIP_HISTORY"
+  : > "$CLIP_HISTORY"
   echo "Clipboard history cleared"
 }
 

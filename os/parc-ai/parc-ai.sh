@@ -37,19 +37,17 @@ mkdir -p "$(dirname "${AI_LOG}")"
 # ---- source all modules ---------------------------------------------------
 MODULE_DIR="${AI_DIR}/modules"
 OVERLAY_DIR="${AI_DIR}/overlay"
+# Load every module once, in filename order.
+#
+# This loop already sources every file in modules/, so the block that followed it
+# explicitly re-sourcing eleven of them was sourcing each one TWICE. The startup
+# log showed it plainly: "[ai-master-brain] loaded" and "[ai-self-learn] loaded"
+# both appeared twice. The explicit list was also stale - it asked for
+# korrinos-features.sh, which does not exist; the module is parcos-features.sh,
+# and the loop already loads it. The "[korrinos-features] loaded" line comes
+# from there.
 [ -d "$MODULE_DIR" ] && for m in "$MODULE_DIR"/*.sh; do [ -f "$m" ] && source "$m"; done
 [ -f "$OVERLAY_DIR/agent-narrator.sh" ] && source "$OVERLAY_DIR/agent-narrator.sh"
-[ -f "$MODULE_DIR/ai-master-brain.sh" ] && source "$MODULE_DIR/ai-master-brain.sh"
-[ -f "$MODULE_DIR/ai-self-learn.sh" ] && source "$MODULE_DIR/ai-self-learn.sh"
-[ -f "$MODULE_DIR/ai-voice.sh" ] && source "$MODULE_DIR/ai-voice.sh"
-[ -f "$MODULE_DIR/ai-image-gen.sh" ] && source "$MODULE_DIR/ai-image-gen.sh"
-[ -f "$MODULE_DIR/ai-personality.sh" ] && source "$MODULE_DIR/ai-personality.sh"
-[ -f "$MODULE_DIR/nlp-670-patterns.sh" ] && source "$MODULE_DIR/nlp-670-patterns.sh"
-[ -f "$MODULE_DIR/ai-nlu-crf.sh" ] && source "$MODULE_DIR/ai-nlu-crf.sh"
-[ -f "$MODULE_DIR/ai-narrative.sh" ] && source "$MODULE_DIR/ai-narrative.sh"
-[ -f "$MODULE_DIR/ai-knowledge-broad.sh" ] && source "$MODULE_DIR/ai-knowledge-broad.sh"
-[ -f "$MODULE_DIR/ai-knowledge-mega.sh" ] && source "$MODULE_DIR/ai-knowledge-mega.sh"
-[ -f "$MODULE_DIR/korrinos-features.sh" ] && source "$MODULE_DIR/korrinos-features.sh"
 
 # ---------------------------------------------------------------------------
 #  HTML card builder helpers

@@ -79,6 +79,7 @@ map_feature() {
         "Window Animations") script_name="window-animations" ;;
         "Desktop Effects") script_name="desktop-effects" ;;
         "Font Manager") script_name="font-manager" ;;
+        "KorrinOS Typeface") script_name="korrinos-typeface" ;;
         "GTK Theme") script_name="gtk-theme" ;;
         "Qt Theme") script_name="qt-theme" ;;
         "Shell Theme") script_name="shell-theme" ;;
@@ -167,7 +168,7 @@ for f in "VPN Manager" "Firewall GUI" "Network Monitor" "Speed Test" "Bandwidth 
 
 echo ""
 echo "--- Customization ---"
-for f in "Cursor Themes" "Icon Packs" "GRUB Theme" "Login Theme" "Window Animations" "Desktop Effects" "Font Manager" "GTK Theme" "Qt Theme" "Shell Theme" "Conky Stats" "Wallpaper Manager"; do map_feature "$f" "$2"; done
+    for f in "Cursor Themes" "Icon Packs" "GRUB Theme" "Login Theme" "Window Animations" "Desktop Effects" "Font Manager" "KorrinOS Typeface" "GTK Theme" "Qt Theme" "Shell Theme" "Conky Stats" "Wallpaper Manager"; do map_feature "$f" "$2"; done
 
 echo ""
 echo "--- Security ---"

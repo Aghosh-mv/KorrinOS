@@ -14,7 +14,7 @@ NC='\033[0m'
 show_header() {
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║                  TINKEROS DRIVER MANAGER                ║${NC}"
+    echo -e "${BLUE}║                 KORRINOS DRIVER MANAGER                  ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }

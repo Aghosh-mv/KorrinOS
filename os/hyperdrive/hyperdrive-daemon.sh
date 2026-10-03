@@ -86,7 +86,10 @@ apply_resolution_scale() {
     # If using X11, we could use xrandr
     if command -v xrandr &>/dev/null; then
         # Get current resolution
-        CURRENT=$(xrandr | grep '*' | head -1 | awk '{print $1}')
+        # grep -F: xrandr marks the active output with a literal asterisk, and
+        # as a regex a lone '*' is a dangling quantifier that matches nothing -
+        # so CURRENT was always empty and this never found the real output.
+        CURRENT=$(xrandr | grep -F '*' | head -1 | awk '{print $1}')
         W=$(echo "$CURRENT" | cut -d'x' -f1)
         H=$(echo "$CURRENT" | cut -d'x' -f2)
         

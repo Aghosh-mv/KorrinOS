@@ -1,8 +1,8 @@
-site_name: TinkerOS Documentation
-site_description: Official documentation for TinkerOS
+site_name: KorrinOS Documentation
+site_description: Official documentation for KorrinOS
 site_url: https://docs.tinkeros.dev
-site_author: TinkerOS Team
-copyright: Copyright &copy; 2024 TinkerOS Team
+site_author: KorrinOS Team
+copyright: Copyright &copy; 2024 KorrinOS Team
 
 theme:
   name: material

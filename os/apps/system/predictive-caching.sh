@@ -201,7 +201,9 @@ stats() {
 # Clear cache
 clear_cache() {
     echo "Clearing pre-cache..."
-    rm -rf "$CACHE_DIR"/*
+    # ${CACHE_DIR:?} so an empty or unset value aborts here rather
+    # than expanding to "/*" and wiping the root filesystem.
+    rm -rf "${CACHE_DIR:?}"/*
     mkdir -p "$CACHE_DIR"
     echo "Cache cleared"
 }

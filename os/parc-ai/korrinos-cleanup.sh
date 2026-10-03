@@ -191,9 +191,16 @@ cmd_disk() {
   echo ""
   
   echo "  Disk usage by type:"
-  find ~ -type f -name "*.mp4" -o -name "*.mkv" -o -name "*.avi" 2>/dev/null | xargs du -ch 2>/dev/null | tail -1 | awk '{print "    Videos: " $1}'
-  find ~ -type f -name "*.mp3" -o -name "*.flac" -o -name "*.wav" 2>/dev/null | xargs du -ch 2>/dev/null | tail -1 | awk '{print "    Audio: " $1}'
-  find ~ -type f -name "*.jpg" -o -name "*.png" -o -name "*.gif" 2>/dev/null | xargs du -ch 2>/dev/null | tail -1 | awk '{print "    Images: " $1}'
+  # Each -name is wrapped in \( ... \) so -type f applies to every pattern.
+  # Without the grouping, -o binds more loosely than -a and only the FIRST
+  # pattern was restricted to regular files - the rest matched anything named
+  # *.mkv, including directories. -print0/-0 keeps filenames with spaces intact.
+  find ~ -type f \( -name "*.mp4" -o -name "*.mkv" -o -name "*.avi" \) -print0 2>/dev/null | \
+    xargs -0 -r du -ch 2>/dev/null | tail -1 | awk '{print "    Videos: " $1}'
+  find ~ -type f \( -name "*.mp3" -o -name "*.flac" -o -name "*.wav" \) -print0 2>/dev/null | \
+    xargs -0 -r du -ch 2>/dev/null | tail -1 | awk '{print "    Audio: " $1}'
+  find ~ -type f \( -name "*.jpg" -o -name "*.png" -o -name "*.gif" \) -print0 2>/dev/null | \
+    xargs -0 -r du -ch 2>/dev/null | tail -1 | awk '{print "    Images: " $1}'
 }
 
 # Duplicate finder
@@ -207,8 +214,11 @@ cmd_duplicates() {
   echo "  Scanning for duplicates (this may take a while)..."
   
   # Find duplicates by MD5 hash
-  find ~ -type f -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/__pycache__/*" 2>/dev/null | \
-    xargs md5sum 2>/dev/null | \
+  # -print0/-0 so a filename containing a space is hashed as one name rather
+  # than being split into two arguments. `md5sum --` stops a leading dash in a
+  # filename being read as an option.
+  find ~ -type f -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/__pycache__/*" -print0 2>/dev/null | \
+    xargs -0 -r md5sum -- 2>/dev/null | \
     sort | \
     uniq -D -w 32 | \
     awk '{print $1}' | \
