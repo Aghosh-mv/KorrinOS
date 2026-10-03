@@ -37,6 +37,8 @@ pub mod cmap;
 pub mod engine;
 pub mod outline;
 pub mod render;
+pub mod screen;
+pub mod x11;
 pub mod words;
 
 pub use engine::{Choice, Frame, Language, Rgb, Rng, Scene, WordBank};

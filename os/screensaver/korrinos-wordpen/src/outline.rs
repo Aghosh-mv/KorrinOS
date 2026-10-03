@@ -96,6 +96,11 @@ fn i16be(bytes: &[u8], offset: usize) -> Option<i16> {
     Some(i16::from_be_bytes([*bytes.get(offset)?, *bytes.get(offset + 1)?]))
 }
 
+/// A 2.14 fixed point number, as used by composite-glyph transforms.
+fn f2dot14(value: u16) -> f64 {
+    (value as f64) / 16384.0
+}
+
 fn u32be(bytes: &[u8], offset: usize) -> Option<u32> {
     Some(u32::from_be_bytes([
         *bytes.get(offset)?,
@@ -158,10 +163,26 @@ impl Font {
             return None;
         }
         // head.indexToLocFormat: 0 means loca offsets are u16, 1 means u32.
-        let index_to_loc = i16be(&data, head_off + 50)?;
-        let long_loca = index_to_loc != 0;
+        //
+        // This must be taken from the header, and NOT inferred from the table
+        // length. An earlier version inferred it, reasoning "if the table is big
+        // enough for u32 indices it must be u32". For a font with thousands of
+        // glyphs a SHORT loca table is tens of kilobytes, so the inference fired
+        // on a short table, u32 reads came out of u16 data, and every glyph past
+        // a few hundred returned no outline - which silently broke Cyrillic,
+        // Greek and Arabic while the cmap still claimed coverage.
         let (loca_off, loca_len) = find(b"loca")?;
         let (glyf_off, glyf_len) = find(b"glyf")?;
+        let index_to_loc = i16be(&data, head_off + 50)?;
+        let (maxp_off, _) = find(b"maxp")?;
+        let num_glyphs = u16be(&data, maxp_off + 4)? as usize;
+        let long_loca = match index_to_loc {
+            1 => true,
+            0 => false,
+            // Only fall back to inference for a flag that is not 0 or 1, which
+            // no conforming font writes.
+            _ => loca_len >= (num_glyphs + 1) * 4,
+        };
         let (hmtx_off, hmtx_len) = find(b"hmtx")?;
         let (hhea_off, _) = find(b"hhea")?;
         let num_h_metrics = u16be(&data, hhea_off + 34)? as usize;
@@ -194,10 +215,8 @@ impl Font {
 
     /// Byte range of glyph `id` inside the `glyf` table.
     fn glyph_range(&self, id: u16) -> Option<(usize, usize)> {
-        // Trust head.indexToLocFormat, but fall back to the table length when
-        // it is ambiguous, so a font with an unset flag still works.
-        let by_length = self.loca.len() >= (id as usize + 2) * 4;
-        let (start, end) = if self.long_loca || by_length {
+        // The format was decided once, when the font was parsed.
+        let (start, end) = if self.long_loca {
             // 'long' offsets: u32 each.
             (
                 u32be(&self.loca, id as usize * 4)? as usize,
@@ -224,25 +243,41 @@ impl Font {
     /// Outline for one glyph, flattened to polylines.
     pub fn glyph(&self, id: u16) -> Option<Glyph> {
         let advance = self.advance(id)?;
-        let Some((start, end)) = self.glyph_range(id) else {
-            // An empty glyph (space) is legitimate: no contours, real advance.
+        // A glyph whose loca range is empty is legitimate - that is a space:
+        // no contours, but a real advance so the pen still moves.
+        if self.glyph_range(id).is_none() {
             return Some(Glyph { contours: Vec::new(), advance });
-        };
-        let contours = self.parse_simple_glyph(start, end)?;
+        }
+        let contours = self.parse_glyph(id, 0).unwrap_or_default();
         Some(Glyph { contours, advance })
     }
 
-    /// Parse a simple glyph. Composite glyphs are skipped rather than faked.
-    fn parse_simple_glyph(&self, start: usize, end: usize) -> Option<Vec<Contour>> {
+    /// Parse a glyph, following composite glyphs.
+    ///
+    /// Composites are not an edge case. A composite is what a font uses for
+    /// every accented Latin letter - so French, Spanish and Portuguese words are
+    /// built largely from them - and DejaVu also composes many Cyrillic and
+    /// Greek capitals. An earlier version returned None for any composite, which
+    /// quietly drew nothing for those letters while the cmap claimed coverage.
+    fn parse_glyph(&self, id: u16, depth: usize) -> Option<Vec<Contour>> {
+        // Depth limit: a malformed or hostile font can point a component at a
+        // glyph that points back, and this must not become infinite recursion.
+        if depth > 5 {
+            return None;
+        }
+        let (start, end) = self.glyph_range(id)?;
+        self.parse_glyph_at(start, end, depth)
+    }
+
+    /// Parse a glyph whose glyf byte range is already known.
+    fn parse_glyph_at(&self, start: usize, end: usize, depth: usize) -> Option<Vec<Contour>> {
         let g = &self.glyf;
         if start.checked_add(10)? > g.len() {
             return None;
         }
         let num_contours = i16be(g, start)?;
         if num_contours < 0 {
-            // Composite glyph: needs a second code path and its own tests.
-            // Returning None means "no outline", not "wrong outline".
-            return None;
+            return self.parse_composite(start, depth);
         }
         let num_contours = num_contours as usize;
         let mut cursor = start + 10;
@@ -331,6 +366,92 @@ impl Font {
         }
         Some(contours)
     }
+    /// Follow a composite glyph's components, transforming each into place.
+    ///
+    /// A composite is what a font uses for an accented Latin letter and for many
+    /// Cyrillic and Greek capitals, so this is on the main path for a large part
+    /// of the 55 languages, not an edge case.
+    fn parse_composite(&self, start: usize, depth: usize) -> Option<Vec<Contour>> {
+        let g = &self.glyf;
+        let mut cursor = start + 10;
+        let mut contours: Vec<Contour> = Vec::new();
+
+        const ARG_1_AND_2_ARE_WORDS: u16 = 0x0001;
+        const ARGS_ARE_XY_VALUES: u16 = 0x0002;
+        const WE_HAVE_A_SCALE: u16 = 0x0008;
+        const MORE_COMPONENTS: u16 = 0x0020;
+        const WE_HAVE_AN_XY_SCALE: u16 = 0x0040;
+        const WE_HAVE_A_2X2: u16 = 0x0080;
+
+        // Bounded, so components that point at each other cannot spin forever.
+        for _ in 0..64 {
+            let flags = u16be(g, cursor)?;
+            let component = u16be(g, cursor + 2)?;
+            cursor += 4;
+
+            let (dx, dy) = if flags & ARG_1_AND_2_ARE_WORDS != 0 {
+                let dx = i16be(g, cursor)? as f64;
+                let dy = i16be(g, cursor + 2)? as f64;
+                cursor += 4;
+                (dx, dy)
+            } else {
+                let dx = *g.get(cursor)? as i8 as f64;
+                let dy = *g.get(cursor + 1)? as i8 as f64;
+                cursor += 2;
+                (dx, dy)
+            };
+
+            let (a, b, c, d) = if flags & WE_HAVE_A_2X2 != 0 {
+                let read = |at: usize| -> Option<f64> { Some(f2dot14(u16be(g, at)?) as f64) };
+                let m = (
+                    read(cursor)?,
+                    read(cursor + 2)?,
+                    read(cursor + 4)?,
+                    read(cursor + 6)?,
+                );
+                cursor += 8;
+                m
+            } else if flags & WE_HAVE_AN_XY_SCALE != 0 {
+                let x = f2dot14(u16be(g, cursor)?) as f64;
+                let y = f2dot14(u16be(g, cursor + 2)?) as f64;
+                cursor += 4;
+                (x, 0.0, 0.0, y)
+            } else if flags & WE_HAVE_A_SCALE != 0 {
+                let s = f2dot14(u16be(g, cursor)?) as f64;
+                cursor += 2;
+                (s, 0.0, 0.0, s)
+            } else {
+                (1.0, 0.0, 0.0, 1.0)
+            };
+
+            // Non-xy args are point indices; matching those is a much larger job
+            // than this needs, so they are placed at the origin. Rare in practice,
+            // and still legible rather than mangled.
+            let (dx, dy) = if flags & ARGS_ARE_XY_VALUES != 0 { (dx, dy) } else { (0.0, 0.0) };
+
+            if let Some(part) = self.parse_glyph(component, depth + 1) {
+                for contour in part {
+                    contours.push(Contour {
+                        points: contour
+                            .points
+                            .into_iter()
+                            .map(|p| Point {
+                                x: a * p.x + c * p.y + dx,
+                                y: b * p.x + d * p.y + dy,
+                                on_curve: p.on_curve,
+                            })
+                            .collect(),
+                    });
+                }
+            }
+
+            if flags & MORE_COMPONENTS == 0 {
+                break;
+            }
+        }
+        if contours.is_empty() { None } else { Some(contours) }
+    }
+
 
     /// Outline for one codepoint, if the font has it.
     pub fn glyph_for_char(&self, ch: char) -> Option<Glyph> {
@@ -526,6 +647,56 @@ mod tests {
         for contour in &glyph.contours {
             assert!(contour.length() > 0.0, "a drawn contour must have length");
             assert!(contour.points.len() >= CURVE_SEGMENTS.min(2));
+        }
+    }
+
+    #[test]
+    fn composite_glyphs_are_followed_not_skipped() {
+        // The bug this pins: composite glyphs were refused outright. In DejaVu
+        // that silently emptied every accented Latin letter AND many Cyrillic
+        // and Greek capitals, because those are composites too.
+        let Some(font) = real_font() else { return };
+        // Latin with diacritics: French, Spanish and Portuguese words are built
+        // largely from these, so skipping them broke three whole languages.
+        for ch in ['É', 'È', 'Ê', 'Ñ', 'Ã', 'Ç', 'Õ', 'å'] {
+            let glyph = font
+                .glyph_for_char(ch)
+                .unwrap_or_else(|| panic!("{ch} should exist in a real font"));
+            assert!(
+                !glyph.contours.is_empty(),
+                "{ch} is a composite and produced NO outline"
+            );
+        }
+        // Cyrillic and Greek capitals are composites in DejaVu.
+        for ch in ['Р', 'В', 'Е', 'Т', 'Α', 'Ε', 'Ι'] {
+            let glyph = font
+                .glyph_for_char(ch)
+                .unwrap_or_else(|| panic!("{ch} should exist in a real font"));
+            assert!(
+                !glyph.contours.is_empty(),
+                "{ch} is a composite and produced NO outline"
+            );
+        }
+    }
+
+    #[test]
+    fn a_composites_outline_stays_inside_the_em_square() {
+        // A component transform applied wrongly scales or flies off; this catches
+        // a bad matrix rather than trusting the arithmetic.
+        let Some(font) = real_font() else { return };
+        let limit = font.units_per_em * 3.0;
+        for ch in ['É', 'Ñ', 'Ç', 'Р', 'Α'] {
+            let glyph = font.glyph_for_char(ch).expect("glyph");
+            for contour in &glyph.contours {
+                for point in &contour.points {
+                    assert!(
+                        point.x.abs() < limit && point.y.abs() < limit,
+                        "{ch}: composite point ({}, {}) escapes the em square",
+                        point.x,
+                        point.y
+                    );
+                }
+            }
         }
     }
 

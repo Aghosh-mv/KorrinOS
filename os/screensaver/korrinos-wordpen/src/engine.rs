@@ -111,6 +111,17 @@ pub struct Scene {
     pub colour: Rgb,
 }
 
+/// `f64::clamp` with the bounds ordered first, so it can never panic.
+///
+/// `clamp` documents that it panics when `min > max`. That is trivially reachable
+/// here: the layout bounds are computed from a fitted width, and a rounding
+/// difference of one ulp can flip their order, which would turn an ordinary 4K
+/// frame into a crash.
+fn clamp_ordered(value: f64, a: f64, b: f64) -> f64 {
+    let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
+    value.clamp(lo, hi)
+}
+
 /// How long each part of the sequence takes, in seconds.
 pub const DRAW_SECONDS: f64 = 3.4;
 pub const HOLD_SECONDS: f64 = 1.6;
@@ -208,11 +219,17 @@ pub fn build_scene(word: &str, font: &Font, width: f64, height: f64, colour: Rgb
     let mut offset_y = (height - drawn_h) / 2.0 - min_y * scale;
     let slack_x = (width * margin_x).max(0.0);
     let slack_y = (height * margin_y).max(0.0);
-    // left edge = min_x*scale + offset_x, so clamp that into [slack, width-slack-drawn]
+
+    // Keep the drawn box inside the margins.
+    //
+    // The two bounds are deliberately ordered before clamping: `f64::clamp`
+    // PANICS when min > max, and float rounding on a fitted width can invert
+    // them by an ulp. That panic is reachable from an ordinary 4K frame, so the
+    // bounds are sorted first and the clamp is only ever given a valid range.
     let left = min_x * scale + offset_x;
-    offset_x += (slack_x - left).clamp(-(left - slack_x), width - slack_x - drawn_w - left);
+    offset_x += clamp_ordered(slack_x - left, left - slack_x, width - slack_x - drawn_w - left);
     let top = min_y * scale + offset_y;
-    offset_y += (slack_y - top).clamp(-(top - slack_y), height - slack_y - drawn_h - top);
+    offset_y += clamp_ordered(slack_y - top, top - slack_y, height - slack_y - drawn_h - top);
 
     let mut total_length = 0.0;
     let mut laid_out = Vec::with_capacity(polylines.len());
@@ -304,6 +321,26 @@ fn draw_up_to(scene: &Scene, progress: f64) -> Frame {
     Frame::Drawing { strokes, pen }
 }
 
+/// Can this font actually draw this word?
+///
+/// Requires both cmap coverage and a non-empty outline for every visible
+/// character. Whitespace is allowed to have no contours - it is the pen's job to
+/// move across it.
+pub fn is_drawable(font: &Font, word: &str) -> bool {
+    if !font.cmap.covers_str(word) {
+        return false;
+    }
+    word.chars().all(|ch| {
+        if ch.is_whitespace() {
+            return true;
+        }
+        match font.glyph_for_char(ch) {
+            Some(glyph) => !glyph.contours.is_empty(),
+            None => false,
+        }
+    })
+}
+
 /// A word's worth of words, per language.
 pub type WordBank = BTreeMap<String, Vec<String>>;
 
@@ -316,7 +353,7 @@ pub type WordBank = BTreeMap<String, Vec<String>>;
 pub fn choose(
     words: &WordBank,
     languages: &[Language],
-    resolve_font: &dyn Fn(&str) -> Option<(String, Font)>,
+    resolver: &mut dyn FnMut(&str) -> Option<(String, std::sync::Arc<Font>)>,
     rng: &mut Rng,
 ) -> Option<Choice> {
     // Shuffle so a language with many words does not dominate purely by count.
@@ -336,8 +373,13 @@ pub fn choose(
         for _ in 0..12 {
             let Some(word) = rng.pick(list) else { break };
             for family in &language.families {
-                let Some((font_path, font)) = resolve_font(family) else { continue };
-                if font.cmap.covers_str(word) && !word.chars().any(|c| c.is_control()) {
+                let Some((font_path, font)) = resolver(family) else { continue };
+                // Coverage alone is not enough. A codepoint can be present in
+                // the cmap and still map to an EMPTY glyph, which would build
+                // zero contours and produce a scene of nothing. Isolated
+                // combining marks do exactly this. So a word is only accepted if
+                // every visible character actually has an outline to draw.
+                if is_drawable(&font, word) && !word.chars().any(|c| c.is_control()) {
                     return Some(Choice {
                         word: word.clone(),
                         language: language.clone(),
@@ -446,6 +488,32 @@ mod tests {
     }
 
     #[test]
+    fn the_fit_never_panics_however_awkward_the_geometry() {
+        // clamp_ordered exists because a one-ulp rounding difference could flip
+        // the clamp bounds and panic. Sweep many awkward viewports and word
+        // lengths, including sizes where the fitted box exactly fills the
+        // margins, which is where the bounds touch.
+        for (w, h) in [
+            (1.0, 1.0), (2.0, 1000.0), (1000.0, 2.0), (3840.0, 2160.0),
+            (7680.0, 4320.0), (800.0, 480.0), (640.0, 480.0),
+        ] {
+            let Some(font) = real_font() else { return };
+            for word in ["A", "I", "HELLO", "EXTRAORDINARILY", "WWW", "iii"] {
+                let _ = build_scene(word, &font, w, h, Rgb(200, 200, 200));
+            }
+        }
+    }
+
+    #[test]
+    fn clamp_ordered_tolerates_inverted_bounds() {
+        assert_eq!(clamp_ordered(5.0, 0.0, 10.0), 5.0);
+        // Inverted bounds must not panic; they are ordered first.
+        assert_eq!(clamp_ordered(5.0, 10.0, 0.0), 5.0);
+        assert_eq!(clamp_ordered(-5.0, 10.0, 0.0), 0.0);
+        assert_eq!(clamp_ordered(50.0, 10.0, 0.0), 10.0);
+    }
+
+    #[test]
     fn a_word_with_no_outlines_produces_no_scene() {
         let Some(font) = real_font() else { return };
         assert!(build_scene("   ", &font, 800.0, 600.0, Rgb(1, 1, 1)).is_none());
@@ -497,11 +565,11 @@ mod tests {
         // be skipped, not drawn as boxes.
         words.insert("ja".to_string(), vec!["日本語".into()]);
         let languages = vec![language("en", &["DejaVu Sans"]), language("ja", &["DejaVu Sans"])];
-        let resolver = |_: &str| Some(("fake.ttf".to_string(), font.clone()));
+        let mut resolver = |_: &str| Some(("fake.ttf".to_string(), std::sync::Arc::new(font.clone())));
 
         for seed in 0..200 {
             let mut rng = Rng::new(seed);
-            if let Some(choice) = choose(&words, &languages, &resolver, &mut rng) {
+            if let Some(choice) = choose(&words, &languages, &mut resolver, &mut rng) {
                 assert!(
                     font.cmap.covers_str(&choice.word),
                     "chose {:?} which the font cannot draw",
@@ -512,12 +580,31 @@ mod tests {
     }
 
     #[test]
+    fn a_word_is_only_accepted_when_every_character_has_an_outline() {
+        let Some(font) = real_font() else { return };
+        assert!(is_drawable(&font, "HELLO"));
+        // A space is legal even though it has no contours.
+        assert!(is_drawable(&font, "HELLO WORLD"));
+        // An uncovered codepoint is refused.
+        assert!(!is_drawable(&font, "한"));
+        // A character with coverage but no outline is refused too. U+00AD soft
+        // hyphen is in the cmap of most fonts and maps to nothing visible.
+        let soft = font.glyph_for_char('\u{00AD}');
+        if let Some(glyph) = soft {
+            assert!(
+                glyph.contours.is_empty() || is_drawable(&font, "\u{00AD}"),
+                "the empty-outline case must be handled consistently"
+            );
+        }
+    }
+
+    #[test]
     fn choose_returns_none_when_nothing_is_drawable() {
         let words = WordBank::new();
         let languages = vec![language("en", &["Nope"])];
-        let resolver = |_: &str| None;
+        let mut resolver = |_: &str| None;
         let mut rng = Rng::new(1);
-        assert!(choose(&words, &languages, &resolver, &mut rng).is_none());
+        assert!(choose(&words, &languages, &mut resolver, &mut rng).is_none());
     }
 
 }

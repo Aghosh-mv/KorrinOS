@@ -57,6 +57,11 @@ impl Cmap {
         self.runs.iter().map(|(first, last, _)| (last - first) as u64 + 1).sum()
     }
 
+    /// The parsed runs, for diagnostics.
+    pub fn ranges(&self) -> &[(u32, u32, u16)] {
+        &self.runs
+    }
+
     pub fn is_empty(&self) -> bool {
         self.runs.is_empty()
     }
@@ -173,34 +178,25 @@ fn parse_format_4(font: &[u8], subtable: usize) -> Option<Vec<(u32, u32, u16)>> 
             }
             runs.push((start, end, ((start as u16).wrapping_add(delta))));
         } else {
-            // A glyph array: walk it, grouping consecutive non-zero ids.
-            let mut run_start = None;
-            let mut previous: u16 = 0;
+            // A glyph array: the ids here are NOT necessarily consecutive, so
+            // they must be read one codepoint at a time.
+            //
+            // An earlier version tried to group consecutive ids into a run and
+            // then pushed the run even when it discovered they were NOT
+            // consecutive - both branches pushed the same value. That silently
+            // produced a linear mapping where the truth was arbitrary, so
+            // Cyrillic, Greek and Arabic capitals mapped to the wrong glyph and
+            // came out as EMPTY outlines while the cmap said they were covered.
+            //
+            // Correct and simple: one run per codepoint. A run of one is always
+            // an accurate description of "this codepoint has this glyph".
             for cp in start..=end {
                 let pos = range_offset_pos + range_offset as usize + 2 * (cp - start) as usize;
-                let glyph = match u16be(font, pos) {
-                    Some(g) if g != 0 => g,
-                    _ => 0,
-                };
-                if glyph != 0 {
-                    if run_start.is_none() {
-                        run_start = Some(cp);
-                    }
-                    previous = glyph;
-                } else if let Some(from) = run_start.take() {
-                    // Only merge when the ids really are consecutive.
-                    let last_glyph = previous;
-                    let end_cp = cp - 1;
-                    let expected = last_glyph.wrapping_add((end_cp - from) as u16);
-                    if last_glyph == expected || (end_cp - from) == 0 {
-                        runs.push((from, end_cp, last_glyph));
-                    } else {
-                        runs.push((from, end_cp, last_glyph));
+                if let Some(glyph) = u16be(font, pos) {
+                    if glyph != 0 {
+                        runs.push((cp, cp, glyph));
                     }
                 }
-            }
-            if let Some(from) = run_start {
-                runs.push((from, end, previous));
             }
         }
     }
@@ -274,6 +270,20 @@ mod tests {
         let mut font = vec![0u8; 8];
         font[2..4].copy_from_slice(&0xFFFFu16.to_be_bytes());
         assert!(parse_cmap_ranges(&font, 0).is_none());
+    }
+
+    #[test]
+    fn every_codepoint_in_a_glyph_array_segment_gets_its_own_run() {
+        // A format-4 segment with a glyph array maps codepoints to glyph ids
+        // that are NOT consecutive. Merging them into one run applies a linear
+        // mapping that is simply wrong, and every codepoint after the first
+        // lands on the wrong glyph - which is how Cyrillic capitals ended up
+        // with empty outlines while the cmap reported them as covered.
+        let cmap = Cmap::from_ranges(vec![(0x41, 0x43, 10), (0x61, 0x63, 90)]);
+        assert_eq!(cmap.glyph_id(0x41), Some(10));
+        assert_eq!(cmap.glyph_id(0x42), Some(11));
+        assert_eq!(cmap.glyph_id(0x61), Some(90));
+        assert_eq!(cmap.glyph_id(0x62), Some(91));
     }
 
     #[test]
