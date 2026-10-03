@@ -145,8 +145,8 @@ int main(int argc, char **argv) {
         /* read current avg pct, then ramp */
         int cur_max = 0;
         for (int i=0;i<npwm;i++) { char mx[128]; snprintf(mx,sizeof(mx),"%s_max",pwms[i]); int m=255; read_int(mx,&m); if(m>cur_max)cur_max=m; }
-        int cur = cur_max; /* start from max to be safe */
-        int from = cur_max * 100.0 / (cur_max?cur_max:255);
+        int from/* start from max to be safe */
+        int fromint from = cur_max * 100.0 / (cur_max?cur_max:255);
         if (from > 100) from = 100;
         /* rapid ramp in 5% steps */
         int dir = (target > from) ? 1 : -1;

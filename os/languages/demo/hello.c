@@ -31,9 +31,6 @@ int main(void) {
         printf("%.*s\n", (int)kl_interp("Hello from %s v%g!", name.data, version).len, kl_interp("Hello from %s v%g!", name.data, version).data);
         printf("%.*s\n", (int)kl_str("Korlang is working!").len, kl_str("Korlang is working!").data);
         int32_t x = 42;
-        double y = 3.14;
-        _Bool flag = 1;
-        kl_string msg = kl_str("testing");
         if ((x > 40)) {
                 printf("%.*s\n", (int)kl_str("x is greater than 40").len, kl_str("x is greater than 40").data);
         } else {

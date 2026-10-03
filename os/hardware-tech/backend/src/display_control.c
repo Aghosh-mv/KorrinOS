@@ -105,7 +105,6 @@ int main(int argc, char **argv) {
 
     if (strcmp(cmd, "read") == 0 || strcmp(cmd, "brightness") == 0 || strcmp(cmd, "dim") == 0) {
         char path[PATH_MAX]; int cur=0, max=255;
-        char dummy[PATH_MAX]; int c2=0;
         if (find_first_backlight(path, sizeof(path), &cur, &max) != 0) {
             printf("brightness=unavailable:no-backlight\n");
             return 1;

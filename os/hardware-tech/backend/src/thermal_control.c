@@ -38,7 +38,6 @@ static int core_temp(int cpu, long *tjj) {
     snprintf(path, sizeof(path), "/dev/cpu/%d/msr", cpu);
     int fd = open(path, O_RDONLY);
     if (fd < 0) return -1;
-    int ok;
     struct msr_info mi;
     mi.msr_no = IA32_TEMP_TARGET;
     mi.regs.eax = 0; mi.regs.edx = 0;

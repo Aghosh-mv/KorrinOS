@@ -72,7 +72,6 @@ static int cbm_mask_width(void) {
 }
 
 static uint64_t rdmsr(int fd, uint32_t msr, int *ok) {
-    uint64_t val = 0;
     struct msr_info mi;
     mi.msr_no = msr;
     mi.regs.eax = 0; mi.regs.edx = 0;
