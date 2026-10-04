@@ -119,7 +119,7 @@ static int desktop_show(struct seq_file *m, void *v)
 		return 0;
 
 	uptime_s = ktime_get_real_seconds() -
-		   (desk_st->session_start ? ktime_to_timespec(desk_st->session_start).tv_sec : 0);
+		   (desk_st->session_start ? ktime_to_timespec64(desk_st->session_start).tv_sec : 0);
 
 	seq_printf(m, "=== KorrinOS Desktop State ===\n\n");
 

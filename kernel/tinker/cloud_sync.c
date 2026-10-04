@@ -122,8 +122,8 @@ static ssize_t cloud_write(struct file *file, const char __user *buf,
 {
 	char kbuf[512];
 	char cmd[32], provider[CLOUD_NAME_MAX];
-	int ret, state_val;
-	long bytes;
+	int ret;
+	long bytes = 0;
 
 	if (count >= sizeof(kbuf))
 		return -EINVAL;
@@ -147,12 +147,19 @@ static ssize_t cloud_write(struct file *file, const char __user *buf,
 			p->last_sync = ktime_get_real();
 		}
 		cloud_st->total_syncs++;
-	} else if (strcmp(cmd, "sync-complete") == 0 && ret >= 3) {
+	} else if (strcmp(cmd, "sync-complete") == 0 && ret >= 2) {
+		/* BUG: this branch was guarded by `ret >= 3`, but the only sscanf
+		 * above has TWO conversions ("%31s %63s"), so ret can never reach 3.
+		 * The branch was unreachable: a finished sync never moved the provider
+		 * back to CLOUD_IDLE, never credited bytes_synced and never bumped
+		 * files_synced, so any provider stayed stuck in CLOUD_SYNCING forever.
+		 * The byte count is the optional third field, so require cmd+provider
+		 * here and validate the byte parse separately. */
 		struct cloud_provider *p = find_or_add_provider(provider);
 		if (p) {
 			p->state = CLOUD_IDLE;
-			sscanf(kbuf, "%*s %*s %ld", &bytes);
-			p->bytes_synced += bytes;
+			if (sscanf(kbuf, "%*s %*s %ld", &bytes) == 1 && bytes > 0)
+				p->bytes_synced += bytes;
 			p->files_synced++;
 		}
 	} else if (strcmp(cmd, "sync-error") == 0 && ret >= 2) {

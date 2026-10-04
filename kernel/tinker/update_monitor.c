@@ -49,7 +49,7 @@ static struct update_state *upd_state;
 
 static void update_schedule_cb(struct timer_list *t)
 {
-	struct update_state *state = from_timer(state, t, schedule_timer);
+	struct update_state *state = container_of(t, struct update_state, schedule_timer);
 
 	if (state && state->auto_update_enabled) {
 		mutex_lock(&state->lock);
@@ -184,7 +184,7 @@ static int __init update_init(void)
 
 static void __exit update_exit(void)
 {
-	del_timer_sync(&upd_state->schedule_timer);
+	timer_delete_sync(&upd_state->schedule_timer);
 	proc_remove(update_proc_entry);
 	kfree(upd_state);
 	pr_info("KorrinOS: update monitor unloaded\n");

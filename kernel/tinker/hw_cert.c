@@ -91,7 +91,7 @@ static ssize_t cert_write(struct file *file, const char __user *buf,
 {
 	char kbuf[256];
 	char cmd[32], name[CERT_NAME_MAX];
-	int ret, score, passed, total;
+	int ret, score, passed, total, i;
 
 	if (count >= sizeof(kbuf))
 		return -EINVAL;

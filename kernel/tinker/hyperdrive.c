@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * HyperDrive Kernel Module — GPU Emulation Helper
  * Provides kernel-level support for software GPU emulation
@@ -24,11 +25,23 @@
 #include <linux/version.h>
 #include <linux/cpumask.h>
 #include <linux/sched/rt.h>
+#include <linux/compaction.h>
 
 #define HD_VERSION "1.0.0"
 #define HD_NAME "hyperdrive"
 #define HD_PROC_DIR "hyperdrive"
 #define HD_MAX_RENDER_THREADS 32
+
+/* Forward declarations.
+ * These three are EXPORT_SYMBOL'd below, so they cannot be static, but they
+ * were defined with no visible prototype, which the kernel build flags as
+ * -Wmissing-prototypes. A non-static function without a prototype also risks
+ * a mismatched declaration being picked up from another header. */
+int hd_boost_thread(pid_t pid);
+int hd_unboost_thread(pid_t pid);
+int hd_pin_memory(unsigned long addr, size_t len);
+unsigned long hd_alloc_huge_pages(int count);
+void hd_compact_memory(void);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("KorrinOS Team");
@@ -96,12 +109,19 @@ int hd_boost_thread(pid_t pid) {
     struct sched_param param = { .sched_priority = 50 };
     sched_setscheduler(task, SCHED_FIFO, &param);
     
-    /* Pin to specific CPU cores for cache locality */
-    cpumask_t mask;
-    cpumask_clear(&mask);
-    cpumask_set_cpu(0, &mask);
-    cpumask_set_cpu(1, &mask);
-    set_cpus_allowed_ptr(task, &mask);
+    /* Pin to specific CPU cores for cache locality.
+     * The mask MUST NOT live on the stack: cpumask_t is sized by NR_CPUS, so
+     * a local cpumask_t is ~1 KiB on a large machine. That put this function
+     * at a 1096-byte frame, over the 1 KiB soft limit, which on a constrained
+     * kernel stack is a real overflow risk. Allocate it on the heap instead. */
+    cpumask_t *mask = kzalloc(cpumask_size(), GFP_KERNEL);
+    if (mask) {
+        cpumask_clear(mask);
+        cpumask_set_cpu(0, mask);
+        cpumask_set_cpu(1, mask);
+        set_cpus_allowed_ptr(task, mask);
+        kfree(mask);
+    }
     
     spin_lock(&rt_lock);
     list_add(&rt->list, &render_threads);
@@ -119,30 +139,33 @@ int hd_boost_thread(pid_t pid) {
 int hd_unboost_thread(pid_t pid) {
     struct hd_render_thread *rt, *tmp;
     struct sched_param param = { .sched_priority = 0 };
-    
+
     spin_lock(&rt_lock);
     list_for_each_entry_safe(rt, tmp, &render_threads, list) {
         if (rt->pid == pid) {
             list_del(&rt->list);
-            
+
             /* Restore normal scheduling */
             sched_setscheduler(rt->task, SCHED_NORMAL, &param);
-            
-            /* Restore normal CPU affinity */
-            cpumask_t full_mask;
-            cpumask_copy(&full_mask, cpu_possible_mask);
-            set_cpus_allowed_ptr(rt->task, &full_mask);
-            
+
+            /* Restore normal CPU affinity.
+             * This mask MUST NOT live on the stack: cpumask_t is sized by
+             * NR_CPUS, so a local cpumask_t is ~1 KiB on a large machine and
+             * blew past the 1 KiB soft limit (-Wframe-larger-than=1024),
+             * which on a constrained stack is a real overflow risk.
+             * cpu_all_mask is a static, per-cpu mask owned by the kernel. */
+            set_cpus_allowed_ptr(rt->task, cpu_all_mask);
+
             put_task_struct(rt->task);
             kfree(rt);
-            
+
             spin_unlock(&rt_lock);
             pr_info(HD_NAME ": Unboosted render thread PID %d\n", pid);
             return 0;
         }
     }
     spin_unlock(&rt_lock);
-    
+
     return -ENOENT;
 }
 
@@ -154,7 +177,6 @@ int hd_unboost_thread(pid_t pid) {
 int hd_pin_memory(unsigned long addr, size_t len) {
     struct page **pages;
     unsigned long nr_pages;
-    unsigned long i;
     int ret;
     
     nr_pages = (len + PAGE_SIZE - 1) / PAGE_SIZE;
@@ -163,13 +185,13 @@ int hd_pin_memory(unsigned long addr, size_t len) {
         return -ENOMEM;
     
     /* Lock pages into RAM */
-    down_read(&current->mm->mmap_sem);
-    ret = get_user_pages(addr, nr_pages, FOLL_WRITE, pages);
-    up_read(&current->mm->mmap_sem);
+    mmap_read_lock(current->mm);
+    ret = pin_user_pages(addr, nr_pages, FOLL_WRITE, pages);
+    mmap_read_unlock(current->mm);
     
     if (ret > 0) {
         stats.pages_pinned += ret;
-        pr_info(HD_NAME ": Pinned %lu pages at %lx\n", ret, addr);
+        pr_info(HD_NAME ": Pinned %lu pages at %lx\n", (unsigned long)ret, addr);
     }
     
     kfree(pages);
@@ -178,14 +200,16 @@ int hd_pin_memory(unsigned long addr, size_t len) {
 
 /* Allocate huge pages for render buffers */
 unsigned long hd_alloc_huge_pages(int count) {
-    unsigned long allocated;
+    struct page *page;
+    unsigned long allocated = 0;
     
-    allocated = alloc_pages(GFP_HIGHUSER | __GFP_COMP | __GFP_HIGHMEM, 
+    page = alloc_pages(GFP_HIGHUSER | __GFP_COMP, 
                             order_base_2(count * 2));  /* 2MB huge pages */
     
-    if (allocated) {
+    if (page) {
+        allocated = page_to_phys(page);
         stats.huge_pages_allocated += count;
-        pr_info(HD_NAME ": Allocated %d huge pages\n", count);
+        pr_info(HD_NAME ": Allocated %d huge pages at phys %lx\n", count, allocated);
     }
     
     return allocated;
@@ -193,14 +217,11 @@ unsigned long hd_alloc_huge_pages(int count) {
 
 /* Trigger memory compaction */
 void hd_compact_memory(void) {
-    /* Force memory compaction */
-    int ret = sysctl_compaction_prologue();
-    if (ret == 0) {
-        compact_zone_order(MIGRATE_UNMOVABLE, 9, GFP_KERNEL, NULL, 
-                          (unsigned int)ret);
-        sysctl_compaction_epilogue();
-    }
-    
+    /* kcompactd handles compaction automatically; wake it for our zones */
+    int nid;
+    for_each_online_node(nid)
+        kcompactd_run(nid);
+
     stats.memory_compacted++;
     stats.defrag_count++;
     
