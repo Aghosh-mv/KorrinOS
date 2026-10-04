@@ -1,84 +1,119 @@
-# The state of `kernel/` — read this before touching the kernel work
+# The state of `kernel/tinker/` — verified against a real build
 
-Written 2026-10-03 after auditing the tree rather than trusting the file listing.
+Last verified: full `make` to `vmlinux` + `bzImage`, all 38 modules recompiled
+from scratch, zero warnings, zero errors.
 
-## `kernel/` is not a buildable Linux kernel
+## This is a real, built KorrinOS kernel
 
-It contains **real upstream kernel source** — `acct.c`, `audit.c` and the rest are
-genuine, with correct SPDX headers and plausible line counts (audit.c is 2,859
-lines, which is about right for the real file). That is not the problem.
+The repo root is a complete Linux kernel tree — **7.2.0-rc6**, `CONFIG_LOCALVERSION="-korrinos"`,
+`CONFIG_X86_64=y`, built with gcc 11.4. `vmlinux` is ~507 MB and `bzImage` ~17 MB.
 
-The problem is that **19 of the 19 directories a kernel build needs are missing**:
+`tinker/` is wired in at both ends:
 
-    include  arch  drivers  fs  mm  kernel  block  net  security  lib
-    ipc  crypto  init  samples  scripts  tools  sound
+- `Makefile:836` — `core-y += kernel/tinker/`
+- `Kconfig:38` — `source "kernel/tinker/Kconfig"`
 
-There is no `Kconfig` at the kernel root either. The 24 directories that *are*
-present — `bpf cgroup configs debug dma entry events futex gcov irq kcsan
-livepatch liveupdate locking module power printk rcu sched time tinker trace
-unwind` — are all leaf subdirectories, with none of the build machinery that ties
-them together.
+All 38 `CONFIG_TINKER_*` symbols are `=y` in `.config`. The modules are `obj-y`,
+so they are **built into the image**, not loadable modules — which is the point:
+this is kernel code, not a service running beside one.
 
-So `kernel/` is a **partial snapshot of kernel source**, not a kernel. Nothing in
-it can be compiled, linked, or booted.
+## It is actually linked into the scheduler
 
-## The `tinker/` modules are real, good code — with nowhere to go
+This is the part worth knowing, because it is easy to assume the modules are
+decorative. They are not. Three scheduler files call into `tinker/`:
 
-All 38 modules in `kernel/tinker/` are genuine KorrinOS kernel modules: correct
-`#include <linux/...>` headers, `tinker_core.h`, `/proc/tinker/*` interfaces,
-proper `MODULE_LICENSE`, `module_init`/`module_exit`. `gamemode.c` mirrors the
-Feral GameMode design; the registry-facing ones implement the roadmap's thermal,
-energy, battery, OLED, cache-tiering, dust, shredder, CXL, DVFS, ray-traced audio
-and neural-audio ideas. This is the "code inside the linux code" the project
-mission asks for, and it is written to a normal standard.
+**`kernel/sched/fair.c`** — CPU selection, two call sites:
+- ~9609: a latency-critical boosted task waives thermal placement, so gamemode
+  does not get throttled by the thermal governor
+- ~9620: `select_task_rq_fair` avoids waking a task onto a thermally-hot CPU when
+  the task's previous CPU is cool *and* valid for it — it only ever moves a task
+  back to a CPU it was already allowed to run on, never overriding affinity
 
-`kernel/tinker/Makefile` already carries the right `obj-$(CONFIG_TINKER_*)` lines
-— 37 of them, one per module. The wiring is correct; the tree it points into is
-not there.
+**`kernel/sched/cpufreq_schedutil.c`** — four call sites:
+- ~204: energy mode caps the schedutil target frequency
+- ~474/500/554: `sugov_tinker_gamemode_util()` adds boost headroom, with a
+  crash-safe reap throttle (~1 call per 256 schedutil updates) so a dead game
+  cannot pin a CPU forever if its cleanup hook never ran
 
-**Nothing in `tinker/` is called from the real kernel.** Only `tinker_proc_root`
-is referenced anywhere outside `tinker/` (4 references). `tinker_gamemode_request_boost`,
-`tinker_energy_mode`, `tinker_battery_envelope` and the rest are defined, never
-invoked. They sit next to the scheduler and mm and do nothing.
+**`kernel/sched/syscalls.c`** — ~536: while gamemode boost is active, RT policy
+requests are permitted where they would normally be denied
 
-## Why the modules cannot be compile-checked here
+Verified by symbol table, not by inspection: `fair.o` carries undefined
+references to `tinker_task_boosted` and `tinker_thermal_is_hot`,
+`cpufreq_schedutil.o` references three tinker symbols, `syscalls.o` one — and all
+of them resolve against tinker code in the linked `vmlinux`. **150 live
+tinker/hyperdrive symbols** are in the image.
 
-Ubuntu's installed `linux-headers-*` packages have an **empty
-`include/generated/`** — every generated file is stripped, including
-`asm/cpufeaturemasks.h`, which `arch/x86/include/asm/cpufeature.h` includes
-unconditionally. Without a configured kernel source tree there is no way to
-produce that file, so every module fails at the first x86 header.
+## hyperdrive was orphaned, and that was real
 
-Checked against all three installed header versions (6.16.3, 6.17.9, 7.0.11);
-all have the same empty `include/generated/`.
+`hyperdrive.c` (379 lines, the GPU emulation helper) had **no entry in either
+`tinker/Makefile` or `tinker/Kconfig`**. No configuration could ever build it, so
+`hd_boost_thread` was absent from `vmlinux` — confirmed by symbol probe before the
+fix, and present in `vmlinux` after it. Both files now have the entry, in the
+surrounding style, and `make kernel/tinker/` compiles `hyperdrive.o` and archives
+it into `built-in.a`.
 
-**So the "38 compiled `.o` files" in `tinker/` are not evidence of anything.**
-They date from 2026-09-28 and were produced by some earlier setup that no longer
-exists in this tree. Do not read them as proof the modules compile.
+Makefile and Kconfig are cross-checked in both directions: 38 symbols matched, no
+Makefile symbol without a Kconfig entry, no `.c` without a Makefile entry.
 
-## What is actually needed
+## API currency against 7.x
 
-In order:
+The box runs 7.0.11 and the tree is 7.2.0-rc6, so the older timer API is gone.
+Verified against `/usr/src/linux-headers-7.0.11-76070011/include`:
 
-1. **A real kernel source tree.** Not vendored into this repo — fetched at build
-   time into a separate directory, so the repo does not carry 1.4 GB of someone
-   else's code.
-2. **A configuration**, then `make prepare` (or `make defconfig && make prepare`)
-   to generate `include/generated/`.
-3. **`tinker/` wired into that tree's `Makefile`** — one line, `obj-y += tinker/`
-   next to the other top-level entries.
-4. **`tinker/Kconfig`** sourced from the tree's `Kconfig`, defining the
-   `CONFIG_TINKER_*` symbols that `tinker/Makefile` already references.
-5. **Actual call sites.** A module that builds still does nothing. The first real
-   integration should be `tinker_gamemode_request_boost()` called from
-   `kernel/sched/core.c`'s `pick_next_task`, because that is the single function
-   that makes 38 decorative modules into live kernel behaviour.
+| old | status in 7.0.11 | replacement |
+|---|---|---|
+| `from_timer()` | **absent** | `container_of()` |
+| `del_timer_sync()` | **absent** | `timer_delete_sync()` |
 
-Only after all five can any claim of "it works in the kernel" be honest.
+Applied in `update_monitor.c` and `desktop_state.c`, then swept all 38 modules for
+`del_timer`, `del_timer_interrupt` and `add_timer` — no remaining uses.
+`ktime_to_timespec()` → `ktime_to_timespec64()` in `desktop_state.c`, since the
+32-bit variant truncates a 64-bit `ktime`.
 
-## Disk note
+## Two real bugs fixed, both build-verified
 
-This machine had **9.7 GB free at 98% full** when this was written. A kernel
-source is ~1.4 GB compressed and rather more extracted. Fetching one is
-possible but tight, and it should not be done while the Zegrate training run is
-writing checkpoints.
+**An unreachable branch in `cloud_sync.c`.** `sync-complete` was handled under
+`ret >= 3`, but the only `sscanf` above it has two conversions (`"%31s %63s"`),
+so `ret` could never reach 3. A finished sync therefore never moved the provider
+back to `CLOUD_IDLE`, never credited `bytes_synced` and never bumped
+`files_synced` — any provider that completed a sync stayed stuck in
+`CLOUD_SYNCING` forever, waiting for an event that could not arrive. Now guarded
+on the two fields it actually requires, with the optional byte count validated by
+its own `sscanf` return check.
+
+**A ~1 KiB kernel stack frame in `hyperdrive.c`.** `hd_boost_thread()` had
+`cpumask_t mask;` as a local. `cpumask_t` is sized by `NR_CPUS`, so on a large
+machine that is ~1 KiB, putting the function at a 1096-byte frame — past the 1 KiB
+soft limit and a real overflow risk against the 16 KiB kernel stack. Moved to
+`kzalloc(cpumask_size(), GFP_KERNEL)` with a NULL check, so pinning is skipped
+rather than faulting if the allocation fails.
+
+## How to rebuild
+
+The tree is already configured, so an incremental build is enough after touching
+anything in `tinker/`:
+
+    touch kernel/tinker/*.c
+    make kernel/tinker/ -j$(nproc)     # 38 modules -> built-in.a
+    make -j$(nproc)                    # full link -> vmlinux, bzImage
+
+To confirm tinker code reached the image:
+
+    nm vmlinux | grep -E ' [tT] ' | grep -cE 'tinker_| hd_'    # 150
+
+## Notes for anyone extending this
+
+- `core-y += kernel/tinker/` means anything added to `tinker/` is in the boot
+  image immediately. There is no module-load step and no `insmod` to forget.
+- A new module needs **three** things, not one: the `.c`, an `obj-$(CONFIG_TINKER_*)`
+  line in `tinker/Makefile`, and a `config` block in `tinker/Kconfig`. The
+  hyperdrive bug was exactly a module missing the latter two while looking
+  completely fine.
+- Prefer hooking into `fair.c` / `cpufreq_schedutil.c` / `syscalls.c` over adding
+  new scheduler entry points. The existing sites are chosen so that TinkerOS
+  behaviour composes with the stock scheduler (it never overrides affinity, and
+  the reap path is crash-safe) rather than fighting it.
+- Build artifacts are heavy here: `drivers/` alone is 21 GB, of which 11.3 GB is
+  20,362 stale `.o` files. `make clean` reclaims that if disk gets tight, at the
+  cost of a long rebuild.
