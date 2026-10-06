@@ -1103,6 +1103,27 @@ case "${1:-help}" in
   vision-click)  shift; agent_vision_click "$@" ;;
   vision-describe) shift; agent_vision_describe "$@" ;;
 
+  # --- agent: computer use (full control surface) ---
+  cu-deps)       cu_deps ;;
+  cu-screenshot) shift; cu_screenshot "$@" ;;
+  cu-capture)    shift; _cu_capture "$@" ;;
+  cu-move)       shift; cu_move "$@" ;;
+  cu-click)      shift; cu_click "$@" ;;
+  cu-click-at)   shift; cu_click_at "$@" ;;
+  cu-drag)       shift; cu_drag "$@" ;;
+  cu-scroll)     shift; cu_scroll "$@" ;;
+  cu-type)       shift; cu_type "$@" ;;
+  cu-key)        shift; cu_key "$@" ;;
+  cu-typeenter)  shift; cu_typeenter "$@" ;;
+  cu-windows)    cu_windows ;;
+  cu-focus)      shift; cu_focus "$@" ;;
+  cu-close)      shift; cu_close "$@" ;;
+  cu-clip-get)   cu_clip_get ;;
+  cu-clip-set)   shift; cu_clip_set "$@" ;;
+  cu-paste)      cu_paste ;;
+  cu-wait)       shift; cu_wait "$@" ;;
+  cu-act)        shift; cu_act "$@" ;;
+
   # --- agent: automation ---
   schedule)      shift; agent_schedule "$@" ;;
   schedules)     agent_schedule_list ;;

@@ -16,13 +16,15 @@ agent_vision_read() {
     echo "Screenshot failed"; return 1
   fi
   
-  # Get image info
+  # Get image info (path passed via env, not interpolated into the source)
   local info
-  info=$(python3 -c "
+  info=$(CU_SHOT="$screenshot" python3 <<'PY' 2>/dev/null
+import os
 from PIL import Image
-img = Image.open('$screenshot')
+img = Image.open(os.environ["CU_SHOT"])
 print(f'Size: {img.size[0]}x{img.size[1]}')
-" 2>/dev/null)
+PY
+)
   
   # OCR all text
   local text
@@ -36,50 +38,58 @@ print(f'Size: {img.size[0]}x{img.size[1]}')
 }
 
 # Find where something is on screen (returns coordinates)
+# NOTE: the path and search target are passed via the environment, not
+# interpolated into the Python source. The previous version spliced them into
+# single-quoted string literals, so any target containing a quote broke the
+# script and a crafted target could inject arbitrary Python.
 agent_vision_find() {
   local target="$1"
-  local screenshot="$AGENT_DIR/screenshots/find_$(date +%s).png"
+  if [ -z "$target" ]; then
+    echo "usage: agent_vision_find <text>"; return 2
+  fi
+  local screenshot="$AGENT_DIR/screenshots/find_$(date +%s%N).png"
   scrot -o "$screenshot" 2>/dev/null
-  
-  python3 -c "
+  if [ ! -f "$screenshot" ]; then
+    echo "Screenshot failed"; return 1
+  fi
+
+  CU_SHOT="$screenshot" CU_TARGET="$target" python3 <<'PY' 2>/dev/null
+import os, subprocess
 from PIL import Image
-import subprocess, re
 
-img = Image.open('$screenshot')
-w, h = img.size
+shot = os.environ["CU_SHOT"]
+target = os.environ["CU_TARGET"].lower().strip()
 
-# OCR with coordinates
-result = subprocess.run(['tesseract', '$screenshot', '-', '--dpi', '96', 'tsv'], capture_output=True, text=True)
-lines = result.stdout.strip().split('\n')
+img = Image.open(shot)
+img_w, img_h = img.size
 
-# Parse TSV for word positions
-header = lines[0].split('\t')
-target = '$target'.lower()
-found_words = []
+result = subprocess.run(["tesseract", shot, "-", "--dpi", "96", "tsv"],
+                        capture_output=True, text=True)
+lines = result.stdout.strip().split("\n")
 
+found = []  # (word, cx, cy)
 for line in lines[1:]:
-    parts = line.split('\t')
-    if len(parts) >= 12:
-        word = parts[11].strip()
-        if word and target in word.lower():
-            x = int(parts[6])
-            y = int(parts[7])
-            w = int(parts[8])
-            h = int(parts[9])
-            cx = x + w // 2
-            cy = y + h // 2
-            found_words.append((word, cx, cy))
+    parts = line.split("\t")
+    if len(parts) < 12:
+        continue
+    word = parts[11].strip()
+    if not word or target not in word.lower():
+        continue
+    x, y = int(parts[6]), int(parts[7])
+    bw, bh = int(parts[8]), int(parts[9])
+    if bw <= 0 or bh <= 0:          # OCR noise rows have zero-size boxes
+        continue
+    found.append((word, x + bw // 2, y + bh // 2))
 
-if found_words:
-    for word, cx, cy in found_words:
-        print(f'Found \"{word}\" at ({cx}, {cy})')
-    # Return center of all matches
-    avg_x = sum(w[1] for w in found_words) // len(found_words)
-    avg_y = sum(w[2] for w in found_words) // len(found_words)
+if found:
+    for word, cx, cy in found:
+        print(f'Found "{word}" at ({cx}, {cy})')
+    avg_x = sum(c[1] for c in found) // len(found)
+    avg_y = sum(c[2] for c in found) // len(found)
     print(f'Click target: ({avg_x}, {avg_y})')
 else:
-    print(f'\"$target\" not found on screen')
-" 2>/dev/null
+    print(f'"{target}" not found on screen')
+PY
 }
 
 # Click on text found on screen
@@ -112,21 +122,22 @@ agent_vision_describe() {
   local text
   text=$(tesseract "$screenshot" - 2>/dev/null)
   
-  # Get image properties
+# Get image properties (env-passed, not interpolated)
   local props
-  props=$(python3 -c "
+  props=$(CU_SHOT="$screenshot" python3 <<'PY' 2>/dev/null
+import os
 from PIL import Image
-img = Image.open('$screenshot')
+img = Image.open(os.environ["CU_SHOT"])
 w, h = img.size
-# Color analysis
 pixels = list(img.getdata())[:10000]
 r_avg = sum(p[0] for p in pixels) // len(pixels)
 g_avg = sum(p[1] for p in pixels) // len(pixels)
 b_avg = sum(p[2] for p in pixels) // len(pixels)
 brightness = (r_avg + g_avg + b_avg) / 3
 print(f'Dimensions: {w}x{h}')
-print(f'Brightness: {brightness:.0f}/255 ({\"bright\" if brightness > 128 else \"dark\"})')
-" 2>/dev/null)
+print(f'Brightness: {brightness:.0f}/255 ({"bright" if brightness > 128 else "dark"})')
+PY
+)
   
   echo "=== Screen Description ==="
   echo "$props"
