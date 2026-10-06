@@ -595,22 +595,42 @@ stage5_squashfs() {
 # kernel + initrd into casper (fresh copy from rootfs)
 stage5_caspermaterials() {
   "$SUDO" mkdir -p "$IMAGE/casper"
-  # Copy kernel from rootfs — PREFER our KorrinOS kernel (-korrinos)
-  local kernel_found=""
-  for k in "$ROOTFS/boot"/vmlinuz-*-korrinos; do
+  # Copy kernel — PREFER the freshly built tree in THIS repo.
+  #
+  # This must come first. The previous order (rootfs -korrinos -> any rootfs
+  # vmlinuz -> host /boot) silently shipped Ubuntu's 5.15.0-1032-realtime when
+  # the chroot had no -korrinos package, which is how KorrinOS-v3.0.iso ended
+  # up with ZERO tinker symbols despite this tree containing all 38 features.
+  # A distro kernel cannot run kernel/tinker at all, so if the built bzImage
+  # exists it is the only correct choice.
+  local kernel_found="" k
+  local KERNEL_SRC="${KERNEL_SRC:-/home/tinkerspace/linux-kernel}"
+  for k in "$KERNEL_SRC/arch/x86/boot/bzImage" \
+           "$KERNEL_SRC/vmlinuz"; do
     if [ -f "$k" ]; then
       "$SUDO" cp "$k" "$IMAGE/casper/vmlinuz"
       kernel_found=1
-      echo "   kernel (KorrinOS): $k"
+      echo "   kernel (built tree): $k"
+      "$SUDO" cp "$k" "$IMAGE/casper/vmlinuz.built"
       break
     fi
   done
+  if [ -z "$kernel_found" ]; then
+    for k in "$ROOTFS/boot"/vmlinuz-*-korrinos; do
+      if [ -f "$k" ]; then
+        "$SUDO" cp "$k" "$IMAGE/casper/vmlinuz"
+        kernel_found=1
+        echo "   kernel (KorrinOS pkg): $k"
+        break
+      fi
+    done
+  fi
   if [ -z "$kernel_found" ]; then
     for k in "$ROOTFS/boot"/vmlinuz-*; do
       if [ -f "$k" ]; then
         "$SUDO" cp "$k" "$IMAGE/casper/vmlinuz"
         kernel_found=1
-        echo "   kernel: $k"
+        echo "   WARN kernel is DISTRO, not built tree: $k"
         break
       fi
     done
@@ -621,7 +641,7 @@ stage5_caspermaterials() {
       if [ -f "$k" ]; then
         "$SUDO" cp "$k" "$IMAGE/casper/vmlinuz"
         kernel_found=1
-        echo "   kernel (host fallback): $k"
+        echo "   WARN kernel (host fallback, distro): $k"
         break
       fi
     done
@@ -674,6 +694,10 @@ loadfont unicode
 insmod all_video
 insmod gfxterm
 terminal_output gfxterm
+# Mirror GRUB to serial so a headless/BIOS boot is observable instead of
+# silently hanging. Harmless on a console, invaluable for support + CI.
+serial --unit=0 --speed=115200
+terminal_output serial
 
 # KorrinOS GRUB theme
 set theme="/boot/grub/themes/korrinos/theme.txt"
@@ -690,6 +714,10 @@ menuentry "KorrinOS 1.3 — Memory Test" {
   linux /casper/vmlinuz boot=casper quiet splash memtest
   initrd /casper/initrd
 }
+menuentry "KorrinOS 1.3 — Rescue / Serial Debug" {
+  linux /casper/vmlinuz boot=casper console=tty0 console=ttyS0,115200
+  initrd /casper/initrd
+}
 menuentry "Boot from first HDD" {
   set root=(hd0)
   chainloader +1
@@ -700,14 +728,34 @@ EOF
     "boot/grub/grub.cfg=$BUILD/grub.cfg" 2>/dev/null || \
     grub-mkimage -p /boot/grub -O x86_64-efi -o "$BUILD/efi.img" \
       iso9660 at_keyboard gfxterm gfxmenu all_video font terminal configfile normal 2>/dev/null || true
-  GRUB_MODS="iso9660 biosdisk part_msdos part_gpt fat ext2 udf normal configfile search search_fs_file linux chain boot reboot gfxterm all_video"
+  # serial + terminal are REQUIRED for the `serial --unit=0` and
+  # `terminal_output serial` lines in grub.cfg above to emit anything. Without
+  # them the BIOS boot produces zero serial bytes and looks like a hang even
+  # when it is booting fine.
+  GRUB_MODS="iso9660 biosdisk part_msdos part_gpt fat ext2 udf normal configfile search search_fs_file linux chain boot reboot serial terminal gfxterm all_video video"
   [ -f /usr/lib/grub/i386-pc/initrd.mod ] && GRUB_MODS="$GRUB_MODS initrd"
   grub-mkimage -p /boot/grub -O i386-pc -o "$BUILD/core.img" $GRUB_MODS 2>&1 | tail -2
   if [ -s "$BUILD/core.img" ]; then
     cat /usr/lib/grub/i386-pc/cdboot.img "$BUILD/core.img" > "$IMAGE/isolinux/isolinux.bin"
   fi
   [ -s "$BUILD/efi.img" ] && mkdir -p "$IMAGE/boot/grub" && cp "$BUILD/efi.img" "$IMAGE/boot/grub/efi.img"
-  ls -la "$IMAGE/isolinux/isolinux.bin" "$IMAGE/boot/grub/efi.img" 2>/dev/null | awk '{print $5,$9}'
+
+  # CRITICAL (BIOS): core.img above was built with the `configfile` module and
+  # prefix /boot/grub, so on BIOS boot GRUB looks for (cd0)/boot/grub/grub.cfg.
+  # Embedding the config in efi.img only serves UEFI. Without this file the BIOS
+  # El Torito image finds no config, prints nothing, and the machine appears to
+  # hang -- which is exactly how the shipped KorrinOS-v3.0.iso behaved.
+  mkdir -p "$IMAGE/boot/grub"
+  cp "$BUILD/grub.cfg" "$IMAGE/boot/grub/grub.cfg"
+
+  # BIOS El Torito has no EFI firmware to inherit, so it also needs the
+  # platform_modules part of the normal GRUB prefix present on the media.
+  if [ -d /usr/lib/grub/i386-pc ]; then
+    mkdir -p "$IMAGE/boot/grub/i386-pc"
+    cp -f /usr/lib/grub/i386-pc/*.mod "$IMAGE/boot/grub/i386-pc/" 2>/dev/null || true
+  fi
+  ls -la "$IMAGE/isolinux/isolinux.bin" "$IMAGE/boot/grub/efi.img" \
+         "$IMAGE/boot/grub/grub.cfg" 2>/dev/null | awk '{print $5,$9}'
   xorriso -as mkisofs -quiet \
     -V KorrinOS \
     -iso-level 3 -R -J -joliet-long -full-iso9660-filenames \
