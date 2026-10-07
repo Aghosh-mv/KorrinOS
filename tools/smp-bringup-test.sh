@@ -105,11 +105,22 @@ done
 
 echo "=================================================="
 res() { echo "${RESULT[$1]:-0}"; }
-if [ "$(res 1)" -gt 0 ] && [ "$(res 2)" -gt 0 ] && [ "$(res 3)" -eq 0 ] && [ "$(res 4)" -eq 0 ]; then
-  echo "RESULT: BUG REPRODUCED - boots with 1-2 CPUs, hangs with 3+"
+
+# Judge only on the CPU counts that were actually tested. Comparing untested
+# counts (defaulting to 0) made a clean reproduction report "no reproduction".
+FAILED_SMPS=""
+BOOTED_SMPS=""
+for s in $SMPS; do
+  if [ "$(res "$s")" -gt 0 ]; then BOOTED_SMPS="$BOOTED_SMPS $s"; else FAILED_SMPS="$FAILED_SMPS $s"; fi
+done
+
+echo "  booted :${BOOTED_SMPS:- none}"
+echo "  stalled:${FAILED_SMPS:- none}"
+
+if [ -n "$FAILED_SMPS" ]; then
+  echo "RESULT: BUG PRESENT - kernels hang at vCPU count(s):$FAILED_SMPS"
   echo "        (see header comment for the register-level evidence)"
   exit 1
 fi
-echo "RESULT: no reproduction in this run. Per-vCPU results:"
-for s in $SMPS; do echo "        smp=$s -> $(res "$s")/$REPEAT"; done
+echo "RESULT: no reproduction - every tested vCPU count booted"
 exit 0
