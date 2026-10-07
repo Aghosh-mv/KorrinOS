@@ -647,16 +647,38 @@ stage5_caspermaterials() {
     done
   fi
   [ -z "$kernel_found" ] && echo "   ERROR: no kernel found!"
-  # Copy initrd from rootfs — prefer -korrinos
-  local initrd_found=""
-  for i in "$ROOTFS/boot"/initrd.img-*-korrinos; do
-    if [ -f "$i" ] && [ ! -s "$IMAGE/casper/initrd" ]; then
-      "$SUDO" cp "$i" "$IMAGE/casper/initrd"
+  # initrd for the live ISO.
+  #
+  # Prefer our own matching initramfs (os/boot/live-init). It is generated for
+  # whatever kernel we just built and needs no modules, because the kernel has
+  # ISO9660/SQUASHFS/BLK_DEV_LOOP/DEVTMPFS built in. A distro-generated
+  # initramfs (initrd.img-* from the chroot) is built for a different kernel
+  # release: every modprobe fails vermagic, udev never populates /dev, and the
+  # casper root scan spins forever with no error. That is the silent-hang boot.
+  local initrd_found="" i
+  local KERNEL_SRC="${KERNEL_SRC:-/home/tinkerspace/linux-kernel}"
+  local LIVE_INIT="$KERNEL_SRC/os/boot/live-init/build-live-initramfs.sh"
+  if [ -x "$LIVE_INIT" ] || [ -f "$LIVE_INIT" ]; then
+    if "$LIVE_INIT" "$BUILD/live-initrd.img" >/dev/null 2>&1; then
+      "$SUDO" cp "$BUILD/live-initrd.img" "$IMAGE/casper/initrd"
       initrd_found=1
-      echo "   initrd (KorrinOS): $i"
-      break
+      echo "   initrd (matching live-init): $BUILD/live-initrd.img"
+    else
+      echo "   WARN: could not build live initramfs, falling back to chroot initrd"
     fi
-  done
+  else
+    echo "   WARN: $LIVE_INIT missing, falling back to chroot initrd"
+  fi
+  if [ -z "$initrd_found" ]; then
+    for i in "$ROOTFS/boot"/initrd.img-*-korrinos; do
+      if [ -f "$i" ] && [ ! -s "$IMAGE/casper/initrd" ]; then
+        "$SUDO" cp "$i" "$IMAGE/casper/initrd"
+        initrd_found=1
+        echo "   initrd (KorrinOS pkg): $i"
+        break
+      fi
+    done
+  fi
   if [ -z "$initrd_found" ]; then
     for i in "$ROOTFS/boot"/initrd.img-*; do
       if [ -f "$i" ] && [ ! -s "$IMAGE/casper/initrd" ]; then

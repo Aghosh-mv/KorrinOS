@@ -1,0 +1,63 @@
+#!/bin/busybox sh
+# KorrinOS live-boot init for a freshly built kernel.
+#
+# The shipped ISO pairs its kernel with an initramfs generated for a different
+# kernel release, so every modprobe inside that initramfs fails on vermagic and
+# udev never populates /dev. The root-device scan then spins forever.
+#
+# This initramfs needs no modules at all: the kernel has SQUASHFS, BLK_DEV_LOOP,
+# ISO9660, DEVTMPFS and EXT4 built in, so it can mount the live media and hand
+# off to the real distribution userspace directly.
+
+BB=/bin/busybox
+export PATH=/bin
+
+bb() { $BB "$@"; }
+mount() { $BB mount "$@"; }
+fail() {
+	echo "KINIT-FAIL: $*"
+	echo "--- /dev ---"
+	$BB ls -l /dev 2>/dev/null
+	exec $BB sh
+}
+
+mount -t proc     proc     /proc  || echo "KINIT: warn proc"
+mount -t sysfs    sysfs    /sys   || echo "KINIT: warn sys"
+mount -t devtmpfs devtmpfs /dev   || echo "KINIT: warn devtmpfs"
+
+# /dev/sr0 can take a moment to appear on some hosts.
+CD=""
+i=0
+while [ $i -lt 50 ]; do
+	if [ -b /dev/sr0 ]; then CD=/dev/sr0; break; fi
+	[ -b /dev/sda ] && { CD=/dev/sda; break; }
+	$BB sleep 0.2
+	i=$((i + 1))
+done
+[ -n "$CD" ] || fail "no CD-ROM block device appeared"
+
+echo "KINIT: mounting live media from $CD"
+mount -t iso9660 -o ro "$CD" /cd || fail "cannot mount $CD as iso9660"
+
+ROOTIMG=""
+for cand in /cd/casper/filesystem.squashfs /cd/live/filesystem.squashfs; do
+	[ -f "$cand" ] && { ROOTIMG="$cand"; break; }
+done
+[ -n "$ROOTIMG" ] || fail "no filesystem.squashfs on the media"
+echo "KINIT: root image $ROOTIMG ($(stat -c %s "$ROOTIMG") bytes)"
+
+echo "KINIT: loop-mounting root"
+mount -o loop,ro "$ROOTIMG" /root || fail "cannot loop-mount $ROOTIMG"
+
+# Hand over to the real distro userspace.
+if [ -x /root/sbin/init ]; then
+	INIT=/sbin/init
+elif [ -x /root/usr/lib/systemd/systemd ]; then
+	INIT=/lib/systemd/systemd
+else
+	fail "no /sbin/init or systemd in the rootfs"
+fi
+
+echo "KINIT: switch_root into rootfs, exec $INIT"
+umount /cd 2>/dev/null
+exec $BB switch_root /root "$INIT"
