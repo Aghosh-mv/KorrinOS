@@ -31,17 +31,29 @@
 
 set -u
 
-BZ="${1:-/home/tinkerspace/linux-kernel/arch/x86/boot/bzImage}"
 REPEAT="${REPEAT:-1}"
-SMPS="1 2 3 4"
-TIMEOUT=180
+SMPS="${SMPS:-1 2 3 4}"
+TIMEOUT="${TIMEOUT:-180}"
+BZ=""
+INITRD=""
 
+# Parse flags first so "--repeat 3" is never mistaken for the bzImage path.
 while [ $# -gt 0 ]; do
   case "$1" in
     --repeat) REPEAT="${2:-3}"; shift 2 ;;
-    *) shift ;;
+    --smps)   SMPS="${2:-1 2 3 4}"; shift 2 ;;
+    --timeout) TIMEOUT="${2:-180}"; shift 2 ;;
+    -h|--help)
+      sed -n '2,30p' "$0" | sed 's/^# \?//'
+      exit 0 ;;
+    -*) echo "unknown option: $1" >&2; exit 2 ;;
+    *)
+      if [ -z "$BZ" ]; then BZ="$1"; else INITRD="$1"; fi
+      shift ;;
   esac
 done
+
+BZ="${BZ:-/home/tinkerspace/linux-kernel/arch/x86/boot/bzImage}"
 
 [ -f "$BZ" ] || { echo "bzImage not found: $BZ" >&2; exit 2; }
 
@@ -92,11 +104,12 @@ for smp in $SMPS; do
 done
 
 echo "=================================================="
-if [ "${RESULT[1]}" -gt 0 ] && [ "${RESULT[2]}" -gt 0 ] && [ "${RESULT[4]}" -eq 0 ]; then
+res() { echo "${RESULT[$1]:-0}"; }
+if [ "$(res 1)" -gt 0 ] && [ "$(res 2)" -gt 0 ] && [ "$(res 3)" -eq 0 ] && [ "$(res 4)" -eq 0 ]; then
   echo "RESULT: BUG REPRODUCED - boots with 1-2 CPUs, hangs with 3+"
   echo "        (see header comment for the register-level evidence)"
   exit 1
 fi
-echo "RESULT: no reproduction in this run (all tested vCPU counts booted,"
-echo "        or the failure did not follow the 1-2 ok / 3+ hung pattern)"
+echo "RESULT: no reproduction in this run. Per-vCPU results:"
+for s in $SMPS; do echo "        smp=$s -> $(res "$s")/$REPEAT"; done
 exit 0
