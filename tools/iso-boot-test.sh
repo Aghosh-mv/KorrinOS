@@ -41,14 +41,44 @@ echo "runs  : $RUNS   smp=$SMP   timeout=${TMO}s"
 echo
 
 pass=0; fail=0; warn_total=0
-for i in $(seq 1 "$RUNS"); do
-  log="$LOGDIR/run$i.log"
-  printf "  run %s: " "$i"
-  timeout "$TMO" qemu-system-x86_64 \
+
+# A stalled boot produces no serial output at all, so waiting out the full
+# timeout on every failure makes a reliability run take an hour. Instead, watch
+# the log: once it has settled at the last pre-userspace line and stopped
+# growing, the boot is dead and we can kill QEMU immediately.
+STALL_LIMIT="${STALL_LIMIT:-150}"   # seconds of zero growth before giving up
+
+run_one() {
+  local log="$1" tmo="$2" last=0 stable=0 now size
+  timeout "$tmo" qemu-system-x86_64 \
     -m 4096 -smp "$SMP" -cdrom "$ISO" \
     -kernel "$BZ" -initrd "$INITRD" \
     -append "console=ttyS0,115200 panic=-1 loglevel=4 ${EXTRA_APPEND:-}" \
-    -display none -serial "file:$log" -no-reboot >/dev/null 2>&1
+    -display none -serial "file:$log" -no-reboot >/dev/null 2>&1 &
+  local qpid=$!
+  while kill -0 "$qpid" 2>/dev/null; do
+    sleep 5
+    size=$(stat -c %s "$log" 2>/dev/null || echo 0)
+    if [ "$size" = "$last" ]; then
+      stable=$((stable + 5))
+      # Don't judge a stall before the kernel has had a chance to start.
+      if [ "$stable" -ge "$STALL_LIMIT" ] && ! grep -qa 'KINIT:' "$log" 2>/dev/null; then
+        kill -TERM "$qpid" 2>/dev/null
+        wait "$qpid" 2>/dev/null
+        echo "early-abort:stalled" >> "$log"
+        return
+      fi
+    else
+      stable=0; last=$size
+    fi
+  done
+  wait "$qpid" 2>/dev/null
+}
+
+for i in $(seq 1 "$RUNS"); do
+  log="$LOGDIR/run$i.log"
+  printf "  run %s: " "$i"
+  run_one "$log" "$TMO"
 
   grub=0; kinit=0; sysd=0; greet=0
   # Hard crash = the kernel actually died. A soft lockup is NOT one: under TCG
