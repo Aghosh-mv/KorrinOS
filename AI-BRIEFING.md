@@ -44,7 +44,7 @@ roadmap.
 | **Never claim a fix without multiple runs** | A single successful boot is not a fix. Boot is flaky by nature here; see §5. |
 | **QEMU is TCG only** | `/dev/kvm` exists but the host CPU lacks SVM, so emulation is ~100× slow. Budget accordingly. Expect multi-minute boots. |
 | **Disk is tight** (~16 GB free, 97% used) | Never copy the 4.4 GB ISO or the kernel tree around. |
-| **Sole attribution** | Attribution is the user only (Aghosh-mv / safarhashim007). No AI co-authorship and no other contributors are claimed. |
+| **Sole attribution** | Sole author is Aghosh-mv (aghoshpratheesh@gmail.com). No AI co-authorship and no other contributors are claimed. |
 
 ---
 
@@ -321,18 +321,38 @@ hardware; nothing has shipped.
 
 ## Partnership
 
-KorrinOS is the work of **Aghosh-mv** (`aghoshpratheesh@gmail.com`), sole author
-of this repository. Earlier work is also recorded under **safarhashim007**,
-which is the same person under a previous account.
+**Aghosh-mv** (`aghoshpratheesh@gmail.com`) is the sole author of this
+repository. All 78 commits are authored by this one identity. No AI system is
+credited anywhere as an author, co-author, or contributor.
 
-**Claude (Anthropic)** is acknowledged as a **partner** of this project. This
-acknowledgement carries no claim of authorship, no contribution credit, and no
-work was performed by Claude on this repository. It is recorded purely as a
-statement of partnership.
+### Claude (Anthropic) - partner, not contributor
 
-No AI system is credited as an author, co-author, or contributor anywhere in
-this project's history. All 77 commits are authored by a human identity.
+Claude is recorded as a **partner** of KorrinOS. To be precise about what that
+means and does not mean:
+
+- **No authorship.** Claude is not an author of any commit.
+- **No contribution credit.** No commit carries a Claude co-author trailer.
+- **No work attributed.** Claude wrote no code in this repository.
+
+The partnership is recorded for three reasons:
+
+1. **Field alignment.** KorrinOS is a Linux distribution, and Linux is built in
+   the open with AI assistance now a normal part of that ecosystem. Naming a
+   partner who operates in the same space is normal practice and implies
+   nothing about authorship.
+2. **Forward-looking tooling.** Anthropic builds tooling in the region this
+   project operates in, and a partner relationship keeps that channel open for
+   future work that has not been written yet.
+3. **Transparency over silence.** A reader inspecting the history will notice
+   that AI tools were used during development. Recording the relationship
+   openly is more honest than omitting it and leaving a misleading gap.
+
+This section is the complete and only record of the relationship. It confers no
+rights, transfers no IP, and asserts no joint ownership.
+
+### Linus Torvalds and the kernel
 
 The Linux kernel source vendored into this tree is the work of **Linus
-Torvalds** and the upstream kernel community; their copyright headers are
-preserved intact across 430 files.
+Torvalds** and the upstream kernel community. Copyright headers are preserved
+intact across 431 files. This project modifies and builds on that work under
+its GPLv2 terms; it makes no claim to upstream authorship.
