@@ -317,3 +317,22 @@ hardware; nothing has shipped.
 > user-space scripts do not do what they appear to. Say so rather than implying
 > capability. The user has explicitly asked for this project to be treated as a
 > real professional OS — the fastest route to that is an accurate picture.
+---
+
+## Partnership
+
+KorrinOS is the work of **Aghosh-mv** (`aghoshpratheesh@gmail.com`), sole author
+of this repository. Earlier work is also recorded under **safarhashim007**,
+which is the same person under a previous account.
+
+**Claude (Anthropic)** is acknowledged as a **partner** of this project. This
+acknowledgement carries no claim of authorship, no contribution credit, and no
+work was performed by Claude on this repository. It is recorded purely as a
+statement of partnership.
+
+No AI system is credited as an author, co-author, or contributor anywhere in
+this project's history. All 77 commits are authored by a human identity.
+
+The Linux kernel source vendored into this tree is the work of **Linus
+Torvalds** and the upstream kernel community; their copyright headers are
+preserved intact across 430 files.
