@@ -249,6 +249,32 @@ static void sugov_get_util(struct sugov_cpu *sg_cpu, unsigned long boost)
 	util = max(util, boost);
 	sg_cpu->bw_min = min;
 	sg_cpu->util = sugov_effective_cpu_perf(sg_cpu->cpu, util, min, max);
+
+#if IS_ENABLED(CONFIG_TINKER_ENERGY_SCHED)
+	/*
+	 * Feed the tinker energy heuristic.
+	 *
+	 * tinker_energy_account() was exported but never called from anywhere in
+	 * the tree, so its busy counter stayed permanently zero. That made
+	 * energy_idle_busy_ratio() return 0 forever, so tinker_energy_mode()
+	 * always took its "no data yet - stay auto" branch and the PEAK/SAVER
+	 * scaling in get_next_freq() could never fire. The module's own comment
+	 * promises "In AUTO mode, uses idle:busy ratio to suggest PEAK or
+	 * SAVER"; that has never actually happened.
+	 *
+	 * sugov_get_util() is called on every governor refresh with a real
+	 * utilisation figure derived from the scheduler's busy/idle accounting,
+	 * so it is the natural place to derive an equivalent signal. Util is
+	 * scaled to a 0..1024 range by this point; convert it to busy ticks and
+	 * treat the remainder of the window as idle.
+	 */
+	{
+		extern void tinker_energy_account(u64 idle, u64 busy);
+		unsigned long scaled = min_t(unsigned long, sg_cpu->util, 1024);
+
+		tinker_energy_account(1024 - scaled, scaled);
+	}
+#endif
 }
 
 /**

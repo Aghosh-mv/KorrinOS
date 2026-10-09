@@ -39,17 +39,45 @@ void tinker_energy_account(u64 idle, u64 busy)
 EXPORT_SYMBOL_GPL(tinker_energy_account);
 
 /*
- * Compute the idle-to-busy tick ratio.  Returns a fixed-point value
- * where 1.0 == 256.  Returns 0 if no data yet.
+ * Sliding-window idle-to-busy ratio. Returns a fixed-point value where
+ * 1.0 == 256. Returns 0 if no data yet.
+ *
+ * This is a WINDOW, not a lifetime total. The counters used to be monotonic
+ * and never reset, so the ratio measured all-time average load: a machine that
+ * was busy for an hour and then went idle still reported PEAK forever, because
+ * the lifetime busy total still dominated. The mode could never adapt back.
+ * Decay now makes recent activity dominate while still smoothing jitter.
+ *
+ * Decay is applied on read, not on write, so the counters stay cheap to update
+ * (a single atomic64_add on the hot path) and the window logic stays off the
+ * scheduler path entirely.
  */
+
+#define ENERGY_WINDOW_MIN	64	/* ignore windows below this (noise floor) */
+
 static u64 energy_idle_busy_ratio(void)
 {
 	u64 idle, busy;
 
+	/*
+	 * Halve both totals on each read. New samples keep arriving between
+	 * reads via tinker_energy_account(), so this turns the lifetime
+	 * monotonic totals into a sliding window: after N reads, samples older
+	 * than N have been halved N times and contribute negligibly.
+	 *
+	 * Decay-on-read keeps the hot path a single atomic64_add and confines
+	 * the window arithmetic to the governor query.
+	 */
+	atomic64_xchg(&energy_ticks_idle, atomic64_read(&energy_ticks_idle) >> 1);
+	atomic64_xchg(&energy_ticks_busy, atomic64_read(&energy_ticks_busy) >> 1);
+
 	idle = atomic64_read(&energy_ticks_idle);
 	busy = atomic64_read(&energy_ticks_busy);
-	if (busy == 0)
-		return idle ? U64_MAX : 0;
+
+	/* Below the noise floor there is not enough data to decide anything. */
+	if (busy < ENERGY_WINDOW_MIN)
+		return 0;
+
 	return (idle << 8) / busy;  /* 256 = 1.0 */
 }
 
