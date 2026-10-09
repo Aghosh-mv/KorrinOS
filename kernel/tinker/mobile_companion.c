@@ -182,10 +182,17 @@ static ssize_t mobile_write(struct file *file, const char __user *buf,
 				break;
 			}
 		}
-	} else if (strcmp(cmd, "battery") == 0 && ret >= 3) {
+	} else if (strcmp(cmd, "battery") == 0) {
 		int level;
 		char status[16];
-		sscanf(kbuf, "%*s %*s %d %15s", &level, status);
+
+		/* `ret >= 3` was permanently false: ret comes from the
+		 * 2-conversion command parse above, so it never exceeds 2 and
+		 * battery reports could never be recorded. Check this sscanf. */
+		if (sscanf(kbuf, "%*s %*s %d %15s", &level, status) != 2) {
+			mutex_unlock(&mob_st->lock);
+			return -EINVAL;
+		}
 		for (i = 0; i < mob_st->device_count; i++) {
 			if (strcmp(mob_st->devices[i].name, dev_name) == 0) {
 				mob_st->devices[i].battery_level = level;

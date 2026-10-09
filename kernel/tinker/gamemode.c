@@ -24,6 +24,10 @@
 
 #define GAMEMODE_MAX_PRIO		10
 #define GAMEMODE_BUFSZ			64
+/* Upper bound on threads we will boost in one pass. A process group is normally
+ * single- or few-threaded; this exists only so the collection array cannot be
+ * sized by an attacker-controlled thread count. */
+#define GAMEMODE_MAX_THREADS		256
 
 static struct mutex gamemode_lock;
 static pid_t gamemode_tgid;
@@ -33,6 +37,8 @@ static int gamemode_rt_prio = GAMEMODE_MAX_PRIO;
 static void gamemode_apply(void)
 {
 	struct task_struct *p;
+	struct task_struct **tasks;
+	unsigned int n = 0, i;
 	pid_t tgid;
 	int prio;
 
@@ -52,27 +58,63 @@ static void gamemode_apply(void)
 	mutex_unlock(&gamemode_lock);
 
 	/*
-	 * No rcu_read_lock() here. sched_setscheduler_nocheck() can sleep -- it
-	 * takes task_alloc_lock and runs __perf_event_task_sched, and on PREEMPT_RT
-	 * it can block on a sleeping spinlock. Sleeping inside an RCU read-side
-	 * critical section is a bug: the kernel correctly splats with
-	 * "Voluntary context switch within RCU read-side critical section!".
+	 * Two-phase: collect task references under rcu_read_lock(), then release
+	 * RCU and do the sleeping work.
 	 *
-	 * Walking the list bare is safe because the boosted tgid was snapshotted
-	 * above and cannot change while we hold the snapshot, and
-	 * sched_setscheduler_nocheck() takes its own reference on each task it
-	 * touches. This mirrors the get_task_struct()/rcu_read_unlock() ordering
-	 * already used in hyperdrive.c's hd_boost_thread().
+	 * Walking the task list bare is a use-after-free: for_each_process() is a
+	 * bare next_task() walk, and task_tgid_nr(p) dereferences p. If the task
+	 * exits mid-walk the pointer is freed and we read freed memory.
+	 *
+	 * But we cannot simply hold rcu_read_lock() across the whole loop either,
+	 * because sched_setscheduler_nocheck() can sleep (it takes task_alloc_lock
+	 * and runs __perf_event_task_sched, and on PREEMPT_RT it can block on a
+	 * sleeping spinlock). Sleeping inside an RCU read-side critical section is
+	 * a bug and the kernel splats with "Voluntary context switch within RCU
+	 * read-side critical section!" -- which is exactly the warning this code
+	 * originally produced.
+	 *
+	 * So: take a reference to each matching task under RCU, drop RCU, then
+	 * apply the policy with a guaranteed-live task. This is the same
+	 * ordering hyperdrive.c's hd_boost_thread() already uses.
 	 */
-	for_each_process(p) {
-		if (task_tgid_nr(p) == tgid) {
-			struct sched_param param = {
-				.sched_priority = prio,
-			};
-			/* best-effort; only if allowed by policy */
-			sched_setscheduler_nocheck(p, SCHED_FIFO, &param);
-		}
+	tasks = kmalloc_array(GAMEMODE_MAX_THREADS, sizeof(*tasks), GFP_KERNEL);
+	if (!tasks) {
+		/*
+		 * Out of memory. We must NOT fall back to calling
+		 * sched_setscheduler_nocheck() inside rcu_read_lock() -- that is
+		 * precisely the sleep-in-RCU splat this function exists to avoid.
+		 * Skipping the boost is correct and safe: gamemode_enabled is
+		 * already set, so the scheduler predicates still waive thermal
+		 * demotion for this tgid. Only the RT priority is not applied.
+		 */
+		pr_warn("gamemode: cannot allocate task list, skipping priority boost\n");
+		return;
 	}
+
+	n = 0;
+	rcu_read_lock();
+	for_each_process(p) {
+		if (task_tgid_nr(p) != tgid)
+			continue;
+		/*
+		 * A boosted process group is small; if it exceeds the batch, take
+		 * what we can. The remaining threads simply keep their current
+		 * policy, which is strictly better than dropping all of them.
+		 */
+		if (n >= GAMEMODE_MAX_THREADS)
+			break;
+		get_task_struct(p);
+		tasks[n++] = p;
+	}
+	rcu_read_unlock();
+
+	for (i = 0; i < n; i++) {
+		struct sched_param param = { .sched_priority = prio };
+		/* best-effort; only if allowed by policy */
+		sched_setscheduler_nocheck(tasks[i], SCHED_FIFO, &param);
+		put_task_struct(tasks[i]);
+	}
+	kfree(tasks);
 }
 
 /*

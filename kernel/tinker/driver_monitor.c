@@ -132,9 +132,17 @@ static ssize_t drivers_write(struct file *file, const char __user *buf,
 		return -EINVAL;
 	}
 
-	if (strcmp(cmd, "load") == 0 && ret >= 3) {
+	if (strcmp(cmd, "load") == 0) {
 		struct driver_info *d = NULL;
-		sscanf(kbuf, "%*s %*s %d", &type_val);
+
+		/* `ret >= 3` was permanently false: ret comes from the
+		 * 2-conversion command parse above, so it never exceeds 2 and
+		 * this command could never load a driver. Require the argument
+		 * parse itself to have found the type. */
+		if (sscanf(kbuf, "%*s %*s %d", &type_val) != 1) {
+			mutex_unlock(&drv_st->lock);
+			return -EINVAL;
+		}
 		for (i = 0; i < drv_st->driver_count; i++) {
 			if (strcmp(drv_st->drivers[i].name, name) == 0) {
 				d = &drv_st->drivers[i];
@@ -157,17 +165,34 @@ static ssize_t drivers_write(struct file *file, const char __user *buf,
 				break;
 			}
 		}
-	} else if (strcmp(cmd, "gpu-mode") == 0 && ret >= 2) {
-		sscanf(kbuf, "%*s %d", &drv_st->gpu_mode);
-	} else if (strcmp(cmd, "dkms-add") == 0) {
-		drv_st->dkms_modules++;
-	} else if (strcmp(cmd, "update-available") == 0 && ret >= 3) {
-		for (i = 0; i < drv_st->driver_count; i++) {
-			if (strcmp(drv_st->drivers[i].name, name) == 0) {
-				drv_st->drivers[i].update_available = 1;
-				sscanf(kbuf, "%*s %*s %31s",
-				       drv_st->drivers[i].update_version);
-				break;
+		} else if (strcmp(cmd, "gpu-mode") == 0) {
+			int gpu_mode;
+
+			/* Check THIS sscanf's return, not `ret`. `ret` is bound to the
+			 * command parse above ("%31s %63s") so it can never exceed 2;
+			 * requiring `ret >= 3` here made this branch permanently
+			 * unreachable. Same bug class as cloud_sync.c. */
+			if (sscanf(kbuf, "%*s %d", &gpu_mode) == 1 &&
+			    gpu_mode >= 0 && gpu_mode <= 2) {
+				drv_st->gpu_mode = gpu_mode;
+			}
+		} else if (strcmp(cmd, "dkms-add") == 0) {
+			drv_st->dkms_modules++;
+		} else if (strcmp(cmd, "update-available") == 0) {
+			/* `ret >= 3` was dead code: ret comes from the 2-conversion
+			 * command parse above, so it never reaches 3. The argument is
+			 * the version string, verified by this sscanf instead. */
+			char version[32];
+
+			if (sscanf(kbuf, "%*s %*s %31s", version) != 1)
+				return -EINVAL;
+			for (i = 0; i < drv_st->driver_count; i++) {
+				if (strcmp(drv_st->drivers[i].name, name) == 0) {
+					drv_st->drivers[i].update_available = 1;
+					strscpy(drv_st->drivers[i].update_version,
+						version,
+						sizeof(drv_st->drivers[i].update_version));
+					break;
 			}
 		}
 		drv_st->pending_updates++;

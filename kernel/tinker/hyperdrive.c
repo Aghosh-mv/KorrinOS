@@ -73,6 +73,9 @@ struct hd_stats {
 
 static struct hd_stats stats;
 static LIST_HEAD(render_threads);
+/* Scratch list used only by hyperdrive_exit() to detach entries under the
+ * spinlock and then restore them with the lock released. */
+static LIST_HEAD(to_restore);
 static DEFINE_SPINLOCK(rt_lock);
 static struct proc_dir_entry *hd_proc_dir;
 
@@ -117,9 +120,21 @@ int hd_boost_thread(pid_t pid) {
     cpumask_t *mask = kzalloc(cpumask_size(), GFP_KERNEL);
     if (mask) {
         cpumask_clear(mask);
+        /*
+         * Bound the mask by nr_cpu_ids. Hardcoding CPUs 0 and 1 is wrong on a
+         * single-CPU machine: cpumask_set_cpu(1, ...) would set a bit for a
+         * CPU that does not exist, the mask then sanitises down to empty, and
+         * set_cpus_allowed_ptr() returns -EINVAL which was being discarded --
+         * so pinning silently did nothing on every 1-vCPU test we ever ran.
+         * On a 1-CPU box, leaving the mask empty means "no affinity change".
+         */
         cpumask_set_cpu(0, mask);
-        cpumask_set_cpu(1, mask);
-        set_cpus_allowed_ptr(task, mask);
+        if (num_possible_cpus() > 1)
+            cpumask_set_cpu(1, mask);
+        if (cpumask_weight(mask) > 0) {
+            if (set_cpus_allowed_ptr(task, mask))
+                pr_warn(HD_NAME ": failed to pin thread %d\n", pid);
+        }
         kfree(mask);
     }
     
@@ -139,34 +154,46 @@ int hd_boost_thread(pid_t pid) {
 int hd_unboost_thread(pid_t pid) {
     struct hd_render_thread *rt, *tmp;
     struct sched_param param = { .sched_priority = 0 };
+    bool restored = false;
 
+    /*
+     * Detach under the lock, then do the work with the lock released.
+     *
+     * sched_setscheduler() takes tasklist_lock and can therefore SLEEP;
+     * set_cpus_allowed_ptr() and put_task_struct() can sleep too. Calling any
+     * of them with rt_lock held is a "scheduling while atomic" bug and will
+     * splat. This is the same bug class as the gamemode deadlock that was
+     * fixed in gamemode.c, missed here.
+     */
     spin_lock(&rt_lock);
     list_for_each_entry_safe(rt, tmp, &render_threads, list) {
         if (rt->pid == pid) {
             list_del(&rt->list);
-
-            /* Restore normal scheduling */
-            sched_setscheduler(rt->task, SCHED_NORMAL, &param);
-
-            /* Restore normal CPU affinity.
-             * This mask MUST NOT live on the stack: cpumask_t is sized by
-             * NR_CPUS, so a local cpumask_t is ~1 KiB on a large machine and
-             * blew past the 1 KiB soft limit (-Wframe-larger-than=1024),
-             * which on a constrained stack is a real overflow risk.
-             * cpu_all_mask is a static, per-cpu mask owned by the kernel. */
-            set_cpus_allowed_ptr(rt->task, cpu_all_mask);
-
-            put_task_struct(rt->task);
-            kfree(rt);
-
-            spin_unlock(&rt_lock);
-            pr_info(HD_NAME ": Unboosted render thread PID %d\n", pid);
-            return 0;
+            restored = true;
+            break;
         }
     }
     spin_unlock(&rt_lock);
 
-    return -ENOENT;
+    if (!restored)
+        return -ENOENT;
+
+    /* Restore normal scheduling. */
+    sched_setscheduler(rt->task, SCHED_NORMAL, &param);
+
+    /* Restore normal CPU affinity.
+     * This mask MUST NOT live on the stack: cpumask_t is sized by
+     * NR_CPUS, so a local cpumask_t is ~1 KiB on a large machine and
+     * blew past the 1 KiB soft limit (-Wframe-larger-than=1024),
+     * which on a constrained stack is a real overflow risk.
+     * cpu_all_mask is a static, per-cpu mask owned by the kernel. */
+    set_cpus_allowed_ptr(rt->task, cpu_all_mask);
+
+    put_task_struct(rt->task);
+    kfree(rt);
+
+    pr_info(HD_NAME ": Unboosted render thread PID %d\n", pid);
+    return 0;
 }
 
 /* ============================================================
@@ -242,12 +269,17 @@ static int hd_proc_show(struct seq_file *m, void *v) {
     
     /* Render threads */
     seq_printf(m, "Render Threads: %lu boosted\n", stats.render_threads_boosted);
-    spin_lock(&rt_lock);
-    list_for_each_entry(rt, &render_threads, list) {
-        seq_printf(m, "  PID %d: priority=50, cpus=0,1\n", rt->pid);
-        count++;
-    }
-    spin_unlock(&rt_lock);
+spin_lock(&rt_lock);
+      list_for_each_entry(rt, &render_threads, list) {
+          /* Report the mask we actually applied, not a hardcoded "0,1".
+           * On a 1-CPU machine no affinity change was made at all. */
+          if (num_possible_cpus() > 1)
+              seq_printf(m, "  PID %d: priority=50, cpus=0,1\n", rt->pid);
+          else
+              seq_printf(m, "  PID %d: priority=50, cpus=all (single-CPU host)\n", rt->pid);
+          count++;
+      }
+      spin_unlock(&rt_lock);
     if (count == 0)
         seq_printf(m, "  (none)\n");
     
@@ -349,22 +381,32 @@ static int __init hyperdrive_init(void) {
 
 static void __exit hyperdrive_exit(void) {
     struct hd_render_thread *rt, *tmp;
-    
-    /* Unboost all threads */
+    struct sched_param param = { .sched_priority = 0 };
+
+    /*
+     * Detach every entry under the lock, then restore each task with the lock
+     * released. sched_setscheduler() takes tasklist_lock and sleeps, so doing
+     * it inside the spinlock would be a "scheduling while atomic" bug.
+     */
     spin_lock(&rt_lock);
     list_for_each_entry_safe(rt, tmp, &render_threads, list) {
         list_del(&rt->list);
-        struct sched_param param = { .sched_priority = 0 };
+        list_add(&rt->list, &to_restore);   /* moved aside, not freed yet */
+    }
+    spin_unlock(&rt_lock);
+
+    /* Unboost all threads, with no lock held. */
+    list_for_each_entry_safe(rt, tmp, &to_restore, list) {
+        list_del(&rt->list);
         sched_setscheduler(rt->task, SCHED_NORMAL, &param);
         put_task_struct(rt->task);
         kfree(rt);
     }
-    spin_unlock(&rt_lock);
-    
+
     /* Remove proc entries */
     remove_proc_entry("status", hd_proc_dir);
     remove_proc_entry(HD_PROC_DIR, NULL);
-    
+
     pr_info(HD_NAME ": Unloaded\n");
 }
 

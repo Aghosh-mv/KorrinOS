@@ -108,9 +108,18 @@ static ssize_t cert_write(struct file *file, const char __user *buf,
 		return -EINVAL;
 	}
 
-	if (strcmp(cmd, "test") == 0 && ret >= 5) {
+	if (strcmp(cmd, "test") == 0) {
 		struct cert_profile *p = NULL;
-		sscanf(kbuf, "%*s %*s %d %d %d", &score, &passed, &total);
+
+		/* `ret >= 5` was permanently false: ret comes from the
+		 * 2-conversion command parse above, so it never exceeds 2 and
+		 * the test command could never run. Verify the argument parse
+		 * directly instead. Same bug class as cloud_sync.c. */
+		if (sscanf(kbuf, "%*s %*s %d %d %d",
+			   &score, &passed, &total) != 3) {
+			mutex_unlock(&cert_st->lock);
+			return -EINVAL;
+		}
 		for (i = 0; i < cert_st->profile_count; i++) {
 			if (strcmp(cert_st->profiles[i].name, name) == 0) {
 				p = &cert_st->profiles[i];
