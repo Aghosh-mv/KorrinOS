@@ -191,12 +191,33 @@ int backlight_device_set_brightness(struct backlight_device *bd,
 	mutex_lock(&bd->ops_lock);
 	if (bd->ops) {
 #if IS_ENABLED(CONFIG_TINKER_OLED_WEAR)
-		extern unsigned int tinker_oled_get_dim(void);
+		/*
+		 * TinkerOS OLED wear compensation.
+		 *
+		 * This used to apply unconditionally, which meant ordinary LCD
+		 * laptop panels were dimmed to 70% after an hour of uptime and
+		 * never recovered. Panel wear levelling is meaningless for LCD -
+		 * the backlight is a separate lamp, not organic pixels - so the
+		 * default MUST be "do not dim".
+		 *
+		 * enum backlight_type describes the CONTROL INTERFACE
+		 * (raw/platform/firmware/...), not the panel chemistry, so it
+		 * cannot answer this question, and there is no reliable
+		 * panel-type field at this layer.
+		 *
+		 * tinker_oled_wear_active() is true only when the wearer has
+		 * explicitly enabled wear levelling on this system, so an
+		 * un-opted-in LCD is never touched. A real OLED-panel probe would
+		 * be better; until one exists, opt-in is the only gate that
+		 * cannot dim a display the user did not ask us to touch.
+		 */
 		{
-			/* TinkerOS OLED wear compensation: scale the requested
-			 * brightness by the wear dim factor (100 = no dim). */
-			unsigned int dim = tinker_oled_get_dim();
-			if (dim > 0 && dim < 100)
+			extern unsigned int tinker_oled_get_dim(void);
+			extern bool tinker_oled_wear_active(void);
+			unsigned int dim;
+
+			if (tinker_oled_wear_active() &&
+			    (dim = tinker_oled_get_dim()) > 0 && dim < 100)
 				brightness = (brightness * dim) / 100;
 		}
 #endif

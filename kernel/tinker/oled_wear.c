@@ -15,6 +15,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/mutex.h>
+#include <linux/string.h>
 #include <linux/uaccess.h>
 #include <linux/backlight.h>
 #include <linux/workqueue.h>
@@ -27,7 +28,11 @@
 static DEFINE_MUTEX(oled_lock);
 static unsigned int oled_dim_pct = 100;	/* 100 = no dimming */
 static unsigned long long oled_wear_seconds;
-static bool oled_wear_enabled = true;
+/* Opt-in, not on by default: this used to be true, so every backlight device in
+ * the kernel was dimmed after an hour of uptime - including ordinary LCD
+ * laptop panels, where wear levelling is meaningless. Callers must consult
+ * tinker_oled_wear_active() before applying any dim. */
+static bool oled_wear_enabled = false;
 static struct delayed_work oled_wear_work;
 
 /* Query used by the backlight driver to apply proportional wear dimming.
@@ -86,6 +91,36 @@ static ssize_t oled_write(struct file *file, const char __user *ubuf,
 		}
 	}
 
+	/*
+	 * Named control commands first, so wear levelling can actually be
+	 * switched on and off. Previously the only writable value was a raw
+	 * percentage and oled_wear_enabled was hardcoded true with no way to
+	 * change it, which is what caused the unconditional dimming.
+	 */
+	if (!strcmp(buf, "on")) {
+		mutex_lock(&oled_lock);
+		oled_wear_enabled = true;
+		/* Reset the counter so enabling starts a fresh wear window. */
+		oled_wear_seconds = 0;
+		oled_dim_pct = 100;
+		mutex_unlock(&oled_lock);
+		return len;
+	}
+	if (!strcmp(buf, "off")) {
+		mutex_lock(&oled_lock);
+		oled_wear_enabled = false;
+		/*
+		 * Restore full brightness immediately. The old code dimmed
+		 * one-way and never restored, so a display that had been dimmed
+		 * stayed dimmed for the rest of the session even after the user
+		 * turned the feature off.
+		 */
+		oled_dim_pct = 100;
+		oled_wear_seconds = 0;
+		mutex_unlock(&oled_lock);
+		return len;
+	}
+
 	val = simple_strtol(buf, NULL, 10);
 	if (val < 0 || val > 100)
 		return -EINVAL;
@@ -95,6 +130,19 @@ static ssize_t oled_write(struct file *file, const char __user *ubuf,
 	mutex_unlock(&oled_lock);
 	return len;
 }
+
+/* True when the user has opted in to wear levelling on this system.
+ * Consulted by backlight_device_set_brightness() before applying any dim. */
+bool tinker_oled_wear_active(void)
+{
+	bool active;
+
+	mutex_lock(&oled_lock);
+	active = oled_wear_enabled;
+	mutex_unlock(&oled_lock);
+	return active;
+}
+EXPORT_SYMBOL_GPL(tinker_oled_wear_active);
 
 static int oled_open(struct inode *inode, struct file *file)
 {

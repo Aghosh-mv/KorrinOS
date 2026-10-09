@@ -107,7 +107,13 @@ static const struct proc_ops dna_fops = {
 static int __init tinker_dna_init(void)
 {
 	if (tinker_proc_root)
-		proc_create("hwdna", 0444, tinker_proc_root, &dna_fops);
+		/*
+		 * Mode must be writable: dna_fops has a .proc_write handler, and with
+		 * 0444 the write could never reach it, so the handler was dead code
+		 * and every write returned EACCES. Fixing the mode so the handler is
+		 * actually reachable, matching what the file already provides.
+		 */
+		proc_create("hwdna", 0644, tinker_proc_root, &dna_fops);
 
 	pr_info("KorrinOS: hardware DNA at /proc/tinker/hwdna\n");
 	return 0;

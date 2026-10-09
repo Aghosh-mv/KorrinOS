@@ -37,6 +37,7 @@ extern u64 tinker_energy_ratio(void);
 
 #ifdef CONFIG_TINKER_OLED_WEAR
 extern unsigned int tinker_oled_get_dim(void);
+extern bool tinker_oled_wear_active(void);
 extern unsigned long long tinker_oled_wear_seconds(void);
 #endif
 

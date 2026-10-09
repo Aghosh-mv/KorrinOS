@@ -113,14 +113,40 @@ static void thermal_decay_workfn(struct work_struct *work)
 
 	spin_lock_irqsave(&thermal_map_lock, flags);
 	for_each_possible_cpu(cpu) {
-		/* Blend: average real zone temp with hint-based estimate */
-		if (heat.zones > 0 && cpu < heat.zones) {
+		/*
+		 * Bounds guard. for_each_possible_cpu() walks the CPU possible
+		 * mask, whose highest set bit can reach NR_CPUS - 1, so indexing
+		 * cpu_temp_mc[] directly is only safe while cpu < NR_CPUS. The two
+		 * other accessors in this file (tinker_thermal_is_hot,
+		 * tinker_thermal_hint_hot_cpu) both clamp against nr_cpu_ids; this
+		 * loop did not, so a hotplug-configured machine could write past
+		 * the end of the array and corrupt cpu_hot_thresh_mc and enabled
+		 * immediately after it - which would make the scheduler heuristic
+		 * return garbage.
+		 */
+		if (cpu < 0 || cpu >= NR_CPUS)
+			continue;
+
+		/*
+		 * zone_temps[] is THERMAL_MAX_ZONES (8) entries. heat.zones is
+		 * set from a count that is not clamped to that bound, so the
+		 * previous test 'cpu < heat.zones' could index past the end of
+		 * zone_temps[]. Bound by the array, not by the count.
+		 */
+		if (heat.zones > 0 && cpu < heat.zones &&
+		    cpu < THERMAL_MAX_ZONES) {
 			heat.cpu_temp_mc[cpu] =
 				(heat.cpu_temp_mc[cpu] + heat.zone_temps[cpu]) / 2;
 		}
-		/* Decay toward zero */
-		if (heat.cpu_temp_mc[cpu] > 0)
-			heat.cpu_temp_mc[cpu] -= 500;
+		/* Decay toward zero. Subtracting from an unsigned value that is
+		 * smaller than the step would wrap to a huge number and mark the
+		 * CPU permanently hot. */
+		if (heat.cpu_temp_mc[cpu] > 0) {
+			if (heat.cpu_temp_mc[cpu] > 500)
+				heat.cpu_temp_mc[cpu] -= 500;
+			else
+				heat.cpu_temp_mc[cpu] = 0;
+		}
 	}
 	spin_unlock_irqrestore(&thermal_map_lock, flags);
 
@@ -142,9 +168,12 @@ static int thermal_show(struct seq_file *m, void *v)
 		   (unsigned long long)heat.cpu_hot_thresh_mc);
 	seq_puts(m, "cpu_temp_mc:\n");
 	spin_lock_irqsave(&thermal_map_lock, flags);
-	for_each_possible_cpu(cpu)
+	for_each_possible_cpu(cpu) {
+		if (cpu < 0 || cpu >= NR_CPUS)
+			continue;
 		seq_printf(m, "  cpu%d:       %llu mc\n", cpu,
 			   (unsigned long long)heat.cpu_temp_mc[cpu]);
+	}
 	spin_unlock_irqrestore(&thermal_map_lock, flags);
 	mutex_unlock(&thermal_lock);
 	return 0;
@@ -172,7 +201,15 @@ static int __init tinker_thermal_init(void)
 	schedule_delayed_work(&thermal_decay_work, msecs_to_jiffies(5000));
 
 	if (tinker_proc_root)
-		proc_create("thermal", 0644, tinker_proc_root, &thermal_fops);
+		/*
+		 * Read-only by design: thermal_fops has no .proc_write handler, so
+		 * with 0644 the node advertised itself writable but every write
+		 * failed with EINVAL. Either the mode was wrong or a handler was
+		 * missing. The temperature map is sampler-owned - only the decay work
+		 * function writes it - so exposing writes would need a real control
+		 * surface. Marked read-only so the mode matches the capability.
+		 */
+		proc_create("thermal", 0444, tinker_proc_root, &thermal_fops);
 
 	pr_info("KorrinOS: thermal scheduler interface at /proc/tinker/thermal\n");
 	return 0;
