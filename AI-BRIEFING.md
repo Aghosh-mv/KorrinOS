@@ -319,40 +319,42 @@ hardware; nothing has shipped.
 > real professional OS — the fastest route to that is an accurate picture.
 ---
 
-## Partnership
+## Authorship and Partnership
 
-**Aghosh-mv** (`aghoshpratheesh@gmail.com`) is the sole author of this
-repository. All 78 commits are authored by this one identity. No AI system is
-credited anywhere as an author, co-author, or contributor.
+### Who is credited
 
-### Claude (Anthropic) - partner, not contributor
+Exactly two parties are credited in this repository:
 
-Claude is recorded as a **partner** of KorrinOS. To be precise about what that
-means and does not mean:
+1. **Aghosh-mv** (`aghoshpratheesh@gmail.com`) - sole author. All commits in
+   this repository are authored by this one identity.
+2. **Linus Torvalds** and the upstream Linux kernel community - authors of the
+   kernel source vendored into this tree, with copyright headers preserved
+   intact across 431 files.
 
-- **No authorship.** Claude is not an author of any commit.
-- **No contribution credit.** No commit carries a Claude co-author trailer.
-- **No work attributed.** Claude wrote no code in this repository.
+**No artificial intelligence is credited anywhere in this project** - not as an
+author, not as a co-author, not as a contributor, and not as a partner. No AI
+name appears in any commit message, and every commit in the history belongs to
+Aghosh-mv.
 
-The partnership is recorded for three reasons:
+### Claude (Anthropic)
 
-1. **Field alignment.** KorrinOS is a Linux distribution, and Linux is built in
-   the open with AI assistance now a normal part of that ecosystem. Naming a
-   partner who operates in the same space is normal practice and implies
-   nothing about authorship.
-2. **Forward-looking tooling.** Anthropic builds tooling in the region this
-   project operates in, and a partner relationship keeps that channel open for
-   future work that has not been written yet.
-3. **Transparency over silence.** A reader inspecting the history will notice
-   that AI tools were used during development. Recording the relationship
-   openly is more honest than omitting it and leaving a misleading gap.
+Claude is recorded as a **partner** of KorrinOS. This is a relationship
+statement only. It is not a credit.
 
-This section is the complete and only record of the relationship. It confers no
-rights, transfers no IP, and asserts no joint ownership.
+- Claude is **not** an author of any commit.
+- Claude is **not** a co-author of any commit.
+- Claude is **not** a contributor of code, documentation, or design.
+- No work in this repository is attributed to Claude.
 
-### Linus Torvalds and the kernel
+The partnership is recorded because:
 
-The Linux kernel source vendored into this tree is the work of **Linus
-Torvalds** and the upstream kernel community. Copyright headers are preserved
-intact across 431 files. This project modifies and builds on that work under
-its GPLv2 terms; it makes no claim to upstream authorship.
+1. **Field alignment.** KorrinOS is a Linux distribution, and the open-source
+   ecosystem around it now includes organisations working in adjacent tooling.
+   Naming a partner in the same space is normal commercial practice and
+   carries no implication about authorship.
+2. **Forward-looking tooling.** A partnership keeps a channel open for work
+   that has not been written yet.
+
+This section is the complete and only record of the relationship. It confers
+no rights, transfers no intellectual property, and asserts no joint ownership.
+KorrinOS is the sole work of Aghosh-mv.

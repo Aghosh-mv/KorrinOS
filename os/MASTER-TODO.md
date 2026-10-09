@@ -54,8 +54,9 @@ like a professional release. Do not claim it works until it does, verified.
 
 ## FACTS (verified 2026-10)
 - Our code ~53k lines / ~10.5k files. Repo 96,059 files, 85,541 are upstream Linux.
-- Sole author: Aghosh-mv (aghoshpratheesh@gmail.com). All 78 commits. No AI
-  co-authorship and no other contributors are claimed.
+- Sole author: Aghosh-mv (aghoshpratheesh@gmail.com). Every commit. Credited
+  parties are Aghosh-mv and Linus Torvalds (vendored kernel source) only.
+  No AI is credited as author, co-author, contributor, or partner.
 - Tests: kcommand 128/128, wordpen 94/94 (85 unit + 9 data), shell 467 bash -n,
   shellcheck error-clean, 49 Python clean.
 - smp-bringup-test.sh and iso-boot-test.sh are the boot regression gates.
