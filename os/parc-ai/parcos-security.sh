@@ -36,9 +36,23 @@ sec_firewall_enable() {
 
 sec_firewall_disable() {
   echo "Disabling firewall..."
+  # This is a legitimate request, but it is also the most dangerous thing this
+  # "Security Center" can do: it silently removes host network protection, and
+  # it used to run with no confirmation at all. Require an explicit typed
+  # confirmation and record the action, so it cannot happen by accident or by a
+  # mistyped command.
   if command -v ufw &>/dev/null; then
+    echo "WARNING: this disables host firewall protection for ALL interfaces."
+    read -r -p "Type 'disable firewall' to confirm: " reply
+    if [ "$reply" != "disable firewall" ]; then
+      echo "Aborted. Firewall left unchanged."
+      return 1
+    fi
     sudo ufw disable
     echo "Firewall disabled"
+  else
+    echo "ufw not installed; nothing to disable"
+    return 1
   fi
 }
 

@@ -135,7 +135,17 @@ setup_firewall() {
       ;;
     nftables)
       echo "Configuring nftables..."
-      sudo nft flush ruleset 2>/dev/null
+      # Remove ONLY our own table, then recreate it.
+      #
+      # `nft flush ruleset` deletes every table on the host, not just ours. On a
+      # machine that also runs Docker, libvirt, LXD or fail2ban this destroys
+      # their firewall state as a side effect of booting KorrinOS. This service
+      # is enabled at boot (ExecStart in korrinos-firewall.service), so the
+      # damage is automatic, not opt-in.
+      #
+      # `delete table` on a table that does not exist fails harmlessly; the
+      # 2>/dev/null plus the following "add table" makes this idempotent.
+      sudo nft delete table inet korrinos 2>/dev/null
       sudo nft add table inet korrinos 2>/dev/null
       sudo nft add chain inet korrinos input '{ type filter hook input priority 0; policy drop; }' 2>/dev/null
       sudo nft add chain inet korrinos output '{ type filter hook output priority 0; policy accept; }' 2>/dev/null
@@ -190,7 +200,29 @@ for r in rules:
         fi
         ;;
       nftables)
-        sudo nft add rule inet korrinos input tcp dport "$port" accept 2>/dev/null
+        # Honour the profile's protocol. Hardcoding "tcp" here meant every UDP
+        # entry in every profile was emitted as a TCP rule, which silently
+        # blocked the entire gaming profile (Steam, PSN, Xbox Live and the
+        # private-network range are all UDP) while looking correctly applied.
+        # The ufw branch above already used $proto; this one did not.
+        #
+        # Also honour $action: an earlier version ignored it and added an
+        # accept rule for every entry regardless of the profile's intent.
+        case "$action" in
+          allow)
+            # Port ranges ("1:65535", "27015:27030") are valid nftables syntax
+            # and are passed through verbatim.
+            sudo nft add rule inet korrinos input "$proto" dport "$port" accept 2>/dev/null \
+              || echo "  warn: could not add $proto dport $port" >&2
+            ;;
+          deny|block|drop)
+            sudo nft add rule inet korrinos input "$proto" dport "$port" drop 2>/dev/null \
+              || echo "  warn: could not add $proto dport $port" >&2
+            ;;
+          *)
+            echo "  warn: unknown action '$action' for port $port, skipping" >&2
+            ;;
+        esac
         ;;
     esac
     echo "  $action $port/$proto ${src:+from $src} [$comment]"
