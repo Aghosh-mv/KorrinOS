@@ -1,5 +1,9 @@
 #!/bin/bash
-# KorrinOS File Vault - Encrypted container management (cryptsetup/LUKS)
+# KorrinOS File Vault - LUKS container MANAGEMENT ONLY.
+#
+# NOTE: this script creates plain unencrypted container images and can
+# open/close/mount them once the user has run cryptsetup by hand. It does
+# NOT perform encryption itself, and must never claim that it does.
 
 set -e
 
@@ -33,22 +37,29 @@ create() {
     check_deps || return 1
     [ -f "$VAULT_DIR/$name.img" ] && { echo "Vault '$name' already exists"; return 1; }
     
-    echo "=== Creating Encrypted Vault: $name (${size}MB) ==="
+    # This creates a PLAIN, UNENCRYPTED sparse image. It does not perform
+    # LUKS formatting, so nothing written here is encrypted. The previous
+    # version printed "Creating Encrypted Vault" and then "Vault created",
+    # which is a false security claim: a user who believed it and stored
+    # secrets in the image would have them in the clear.
+    echo "=== Creating vault CONTAINER: $name (${size}MB) ==="
+    echo "  WARNING: this container is NOT yet encrypted."
     echo ""
     echo "Creating sparse image file..."
     truncate -s "${size}M" "$VAULT_DIR/$name.img"
-    echo "   Created $VAULT_DIR/$name.img"
+    chmod 600 "$VAULT_DIR/$name.img"
+    echo "   Created $VAULT_DIR/$name.img (mode 600)"
     echo ""
-    echo "Setting up loop device (requires sudo)..."
-    echo "  (You must complete LUKS format + mount manually:)"
+    echo "To actually encrypt it, run these yourself:"
     echo ""
-    echo "  sudo losetup /dev/loop0 $VAULT_DIR/$name.img"
-    echo "  sudo cryptsetup luksFormat /dev/loop0"
-    echo "  sudo cryptsetup open /dev/loop0 $name"
+    echo "  sudo losetup --find --show $VAULT_DIR/$name.img"
+    echo "  sudo cryptsetup luksFormat <loopdev>"
+    echo "  sudo cryptsetup open <loopdev> $name"
     echo "  sudo mkfs.${FS:-ext4} /dev/mapper/$name"
     echo "  sudo mount /dev/mapper/$name $MOUNT_POINT"
     echo ""
-    echo "  Vault created. Complete the steps above to encrypt and mount."
+    echo "  Container created but UNENCRYPTED. Do not store secrets in it"
+    echo "  until you have completed the LUKS format step above."
 }
 
 # Try to open/mount (requires user to complete system setup)

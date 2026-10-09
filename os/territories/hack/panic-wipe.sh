@@ -14,7 +14,13 @@
 set -euo pipefail
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/common.sh"
 
-MEMDIRS="${TINKER_STATE}/gup ${TINKER_STATE}/worlds /dev/shm"
+# Only KorrinOS scratch state. /dev/shm was previously included, but it is
+# shared POSIX memory used by every application on the machine - wiping it
+# from a bare keybind (Space+Shift+Escape, wired in modes.sh) corrupts
+# unrelated programs. Opt in explicitly if that is genuinely wanted:
+#   TINKER_WIPE_SHM=1 ./panic-wipe.sh
+MEMDIRS="${TINKER_STATE}/gup ${TINKER_STATE}/worlds"
+[ "${TINKER_WIPE_SHM:-0}" = "1" ] && MEMDIRS="$MEMDIRS /dev/shm"
 SEVERE=0
 
 # 1) Kill the workspace processes (scoped to tinker territory)

@@ -50,6 +50,17 @@ NFT
     nft add rule inet tinker_amnesia output oif lo accept || true
     echo "nftables deny-all applied."
   elif command -v iptables >/dev/null 2>&1; then
+    # OUTPUT DROP severs the operator's own outbound path, including an active
+    # SSH session, with no way back except physical access to the machine.
+    # ESTABLISHED is re-accepted on the next line so an existing SSH
+    # connection survives, but any NEW outbound connection is dropped.
+    if [ "${SSH_CONNECTION:-}" != "" ] || [ "${SSH_TTY:-}" != "" ]; then
+      echo "WARNING: this sets OUTPUT policy to DROP and you are connected over SSH."
+      echo "         Existing sessions are preserved, but new outbound connections"
+      echo "         will be blocked and you may lose access."
+      read -r -p "Type 'deny all' to continue: " reply
+      [ "$reply" = "deny all" ] || { echo "Aborted."; return 1; }
+    fi
     iptables -P INPUT DROP; iptables -P OUTPUT DROP; iptables -P FORWARD DROP
     iptables -A INPUT -i lo -j ACCEPT; iptables -A OUTPUT -o lo -j ACCEPT
     iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT

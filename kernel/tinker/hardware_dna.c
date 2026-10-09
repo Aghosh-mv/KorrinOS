@@ -31,7 +31,7 @@ static void dna_compute(void)
 {
 	/* stable hash-ish digest from a few component counters */
 	unsigned int h = 2166136261U;
-	unsigned int mix = (unsigned int)get_cycles() & (get_cycles() ? 0 : 0);
+	/* removed: the old declaration always evaluated to 0 (see below) */
 	unsigned int cpu = 0;
 
 	dna_cpus = num_possible_cpus();
@@ -44,9 +44,29 @@ static void dna_compute(void)
 	if (!dna_obfuscated)
 		snprintf(dna_sum, sizeof(dna_sum), "TINKER-HWDNA-%08x-%u",
 			 h, dna_cpus);
-	else
+	else {
+		/*
+		 * Obfuscated fingerprint.
+		 *
+		 * This used to read:
+		 *     mix = get_cycles() & (get_cycles() ? 0 : 0);
+		 * The ternary always yields 0, so 'x & 0' is always 0 and every
+		 * obfuscated fingerprint was the constant
+		 * TINKER-OBFUSCATED-00000000 - identical on every machine, which
+		 * defeats the point of a fingerprint. Use a real FNV-style fold
+		 * of the cycle counter instead.
+		 */
+		unsigned int mix = (unsigned int)get_cycles();
+
+		mix ^= mix >> 16;
+		mix *= 2654435761U;
+		mix ^= mix >> 13;
+		mix *= 2246822519U;
+		mix ^= mix >> 16;
+
 		snprintf(dna_sum, sizeof(dna_sum), "TINKER-OBFUSCATED-%08x",
 			 mix);
+	}
 	dna_ready = true;
 }
 

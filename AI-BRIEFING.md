@@ -44,7 +44,7 @@ roadmap.
 | **Never claim a fix without multiple runs** | A single successful boot is not a fix. Boot is flaky by nature here; see §5. |
 | **QEMU is TCG only** | `/dev/kvm` exists but the host CPU lacks SVM, so emulation is ~100× slow. Budget accordingly. Expect multi-minute boots. |
 | **Disk is tight** (~16 GB free, 97% used) | Never copy the 4.4 GB ISO or the kernel tree around. |
-| **No external human contributors** | Attribution is the user (hrakashchauhan / Aghosh-mv / safarhashim007) plus AI authorship. |
+| **Sole attribution** | Attribution is the user only (Aghosh-mv / safarhashim007). No AI co-authorship and no other contributors are claimed. |
 
 ---
 
