@@ -48,31 +48,56 @@ static struct delayed_work thermal_decay_work;
 /* Mark a CPU hot; decay brings it back down over time. */
 void tinker_thermal_hint_hot_cpu(int cpu)
 {
-	unsigned long flags;
-
-	if (!heat.enabled || cpu < 0 || cpu >= nr_cpu_ids)
+	/* Single-writer, advisory data: use WRITE_ONCE, not a lock. This
+	 * function is exported and can be called from any context, including
+	 * IRQ, so it must not take a spinlock. */
+	if (!READ_ONCE(heat.enabled) || cpu < 0 || cpu >= nr_cpu_ids)
 		return;
 
-	spin_lock_irqsave(&thermal_map_lock, flags);
-	if (heat.cpu_temp_mc[cpu] < heat.cpu_hot_thresh_mc)
-		heat.cpu_temp_mc[cpu] = heat.cpu_hot_thresh_mc + 1000;
-	spin_unlock_irqrestore(&thermal_map_lock, flags);
+	if (READ_ONCE(heat.cpu_temp_mc[cpu]) <
+	    READ_ONCE(heat.cpu_hot_thresh_mc))
+		WRITE_ONCE(heat.cpu_temp_mc[cpu],
+			   READ_ONCE(heat.cpu_hot_thresh_mc) + 1000);
 }
 EXPORT_SYMBOL_GPL(tinker_thermal_hint_hot_cpu);
 
 /* Query used by the scheduler: should this CPU be avoided for new load? */
 bool tinker_thermal_is_hot(int cpu)
 {
-	unsigned long flags;
-	bool hot;
-
-	if (!heat.enabled || cpu < 0 || cpu >= nr_cpu_ids)
+	/*
+	 * Deliberately lock-free.
+	 *
+	 * This function is called from find_energy_efficient_cpu() in the CFS
+	 * load balancer, which runs on EVERY task wakeup - including wakeups
+	 * raised from IRQ and softirq context (process_timeout() running in the
+	 * timer softirq reaches try_to_wake_up() -> select_task_rq_fair()).
+	 *
+	 * It used to take thermal_map_lock here. Lockdep proved that is a real
+	 * bug, not a theoretical one:
+	 *
+	 *   BUG: Invalid wait context
+	 *   swapper/0/1 is trying to lock:
+	 *   ffffffff83c9a318 (thermal_map_lock){....}-{3:3},
+	 *       at: tinker_thermal_is_hot+0x50/0xb0
+	 *   context-{3:3}
+	 *
+	 * Acquiring a spinlock from the scheduler's wakeup path is a deadlock
+	 * waiting to happen and matches the multi-CPU stall seen at -smp 4
+	 * (0/4, no panic, no oops - a deadlock with the watchdog unable to
+	 * report looks exactly like that).
+	 *
+	 * Lock-free reads are correct here: cpu_temp_mc[] has a single writer
+	 * (the decay work function) and the value is purely advisory. If a CPU
+	 * is reported 1 sample stale when deciding where to place a task, the
+	 * cost is one misplaced wakeup; if we deadlock, the machine is gone.
+	 * READ_ONCE gives a coherent-enough single-word snapshot without any
+	 * exclusion.
+	 */
+	if (!READ_ONCE(heat.enabled) || cpu < 0 || cpu >= nr_cpu_ids)
 		return false;
 
-	spin_lock_irqsave(&thermal_map_lock, flags);
-	hot = heat.cpu_temp_mc[cpu] > heat.cpu_hot_thresh_mc;
-	spin_unlock_irqrestore(&thermal_map_lock, flags);
-	return hot;
+	return READ_ONCE(heat.cpu_temp_mc[cpu]) >
+	       READ_ONCE(heat.cpu_hot_thresh_mc);
 }
 EXPORT_SYMBOL_GPL(tinker_thermal_is_hot);
 
