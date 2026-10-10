@@ -60,3 +60,6 @@ like a professional release. Do not claim it works until it does, verified.
 - Tests: kcommand 128/128, wordpen 94/94 (85 unit + 9 data), shell 467 bash -n,
   shellcheck error-clean, 49 Python clean.
 - smp-bringup-test.sh and iso-boot-test.sh are the boot regression gates.
+- [x] **ISO boot path now reaches systemd** (was 0/5 userspace). Fixed as a consequence of the core.c revert: the live initramfs loop-mounts the 4.5GB squashfs and switch_root's into systemd, which reaches basic targets and then stalls in userspace.
+- [ ] **ISO stalls in userspace at ~8 systemd targets.** Loop-mates every 5.5s with `BPF: Invalid name`, root cause is module signature verification: `autofs4: module verification failed: signature and/or required key missing`. Our kernel sets `CONFIG_MODULE_SIG=y` but `SYSTEM_TRUSTED_KEYS=""` (stock Ubuntu points at `debian/canonical-certs.pem`), so no module can ever verify. Fix: generate a project signing key and point SYSTEM_TRUSTED_KEYS at it.
+- [ ] **Generate a real module signing key + trust it.** `SYSTEM_TRUSTED_KEYS` is empty, so module signing is theatre: every in-tree module is unsigned and unverifiable, and Secure Boot is impossible. Directly causes the ISO stall above and the Tier-3 'no Secure Boot' finding.
