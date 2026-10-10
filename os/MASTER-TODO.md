@@ -7,7 +7,7 @@ like a professional release. Do not claim it works until it does, verified.
 ## P0 — BLOCKERS (nothing else matters until these are done)
 - [ ] Root-cause early-boot stall. Currently 0/5 boots. Get backtrace/lockdep,
       fix, verify 5/5.
-- [ ] Multi-core stall at -smp 3+ (0/4). Every real machine and VM has >2 cores.
+- [x] **Multi-core stall at -smp 3+ SOLVED** (was 0/4, now 5/5 at -smp 4). Cause: an added `pr_warn()` under `rq->lock`+`p->pi_lock` in `affine_move_task()` in kernel/sched/core.c. Reverted to pristine upstream. Not ACPI, not idle, not tinker.
 - [ ] B1 hyperdrive.c: sleeping sched_setscheduler() under rt_lock spinlock.
 - [ ] B8 gamemode_apply(): for_each_process() with no rcu_read_lock -> UAF.
 - [ ] 15 DANGEROUS os/ scripts (nft flush ruleset at boot; Security Center

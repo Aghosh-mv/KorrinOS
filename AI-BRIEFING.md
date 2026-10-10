@@ -96,7 +96,44 @@ cloud, zero cost, pure local software.
 |---|---|
 | ISO → userspace | **0/5** baseline; 1/5 with `processor.max_cstate=0` |
 | `-smp 1`, `-smp 2` | boots reliably |
-| `-smp 3`, `4`, `6` | **stalls** (0/4 measured) |
+| `-smp 3`, `4`, `6` | **SOLVED 2026-10-10** — was 0/4, now 5/5 at `-smp 4` |
+
+The multi-core stall was **not** ACPI, not idle-state, and not the tinker
+modules. It was a single `pr_warn()` this project had added inside
+`affine_move_task()` in `kernel/sched/core.c`, where both `rq->lock` and
+`p->pi_lock` are held:
+
+```c
+struct rq *new_rq = __migrate_task(rq, &rf, p, arg->dest_cpu);
+if (new_rq == rq)
+        pr_warn("sched: migration failed for task %d on CPU %d\n", ...);
+```
+
+`printk` can block. In the task-migration path under two spinlocks that is a
+self-deadlock the scheduler must never have, and it presented exactly as the
+silent, panic-free hang we saw. Upstream deliberately does not log there —
+the code carries an explicit "probably not a big deal" XXX comment, and the
+patch answered that silence with a printk.
+
+`kernel/sched/core.c` is now byte-identical to upstream `v7.2-rc6`. Measured
+after the revert, same initramfs and QEMU settings:
+
+| Build | `-smp 4` |
+|---|---|
+| stock Ubuntu `vmlinuz-7.0.11` (control) | 4/4 |
+| ours, before revert | 0/4 |
+| ours, core.c reverted, tinker off | 5/5 |
+| ours, core.c reverted, tinker **on** (production) | **5/5** |
+
+`-smp 2` 3/3, `-smp 8` 3/3, `-smp 16` 2/2.
+
+How it was found, since the method matters more than the result: a lockdep
+build exposed an unrelated real bug (a spinlock taken from the CFS wakeup
+path); with that fixed the stall persisted, and a live QEMU register dump
+showed CPU 0 spinning in `native_queued_spin_lock_slowpath+0xbc` — a real lock
+wait, not idle parking. A stock kernel control run (never previously done)
+booted 4/4, proving the fault was ours rather than the environment. Diffing
+`kernel/sched/` against pristine upstream then showed the 22 changed lines.
 
 The stall occurs immediately after:
 
@@ -166,7 +203,7 @@ Full list in `os/MASTER-TODO.md`.
 | ID | Defect |
 |---|---|
 | — | Early-boot stall (0/5) |
-| — | Multi-core stall at `-smp 3+` |
+| FIXED | Multi-core stall at `-smp 3+` — added `pr_warn()` under `rq->lock`+`p->pi_lock` in `affine_move_task()` (`kernel/sched/core.c`), reverted to upstream |
 | B1 | `hyperdrive.c` calls sleeping `sched_setscheduler()` under the `rt_lock` spinlock — same class as the fixed gamemode deadlock |
 | B8 | `gamemode_apply()` walks `for_each_process()` without `rcu_read_lock()` → UAF |
 | — | `nft flush ruleset` runs at boot |
