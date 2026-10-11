@@ -48,6 +48,14 @@ REQUIRED=(
   "VIRTIO=y"
   "TMPFS=y"
   "UNIX=y"              # needed for systemd
+  "MODULE_SIG=y"        # sign in-tree modules
+  "MODULE_SIG_ALL=y"    # ...including every in-tree module, not just externals
+  # Trust our own project certificate. Without this the kernel verifies module
+  # signatures against an empty keyring, every module taints as
+  # "signature and/or required key missing", and the ISO live-boot wedges in a
+  # modprobe retry loop. The matching certificate must exist at
+  # certs/signing_key.x509.pem; see tools/make-module-cert.sh.
+  "SYSTEM_TRUSTED_KEYS=certs/signing_key.x509.pem"
 )
 
 # --- the KorrinOS feature set ------------------------------------------------

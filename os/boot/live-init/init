@@ -59,5 +59,26 @@ else
 fi
 
 echo "KINIT: switch_root into rootfs, exec $INIT"
-umount /cd 2>/dev/null
+
+# The real userspace expects these to already exist. switch_root carries the
+# current mounts across, so everything mounted here must be mounted at the path
+# the new root expects - /dev/pts under /dev, /run as its own tmpfs, and so on.
+#
+# systemd blocks right after "Started Journal Service" and then stops dead if
+# /run is not a tmpfs, and it cannot create ptys without devpts.
+mkdir -p /root/proc /root/sys /root/dev /root/dev/pts /root/run /root/tmp
+mount -t devpts -o gid=5,mode=620 devpts /root/dev/pts 2>/dev/null || echo "KINIT: warn devpts"
+mount -t tmpfs tmpfs /root/run                          2>/dev/null || echo "KINIT: warn run"
+mount -t tmpfs -o mode=1777,size=10% tmpfs /root/dev/shm   2>/dev/null || echo "KINIT: warn shm"
+mount -t tmpfs -o mode=755,size=10%  tmpfs /root/dev/mqueue 2>/dev/null || echo "KINIT: warn mqueue"
+chmod 1777 /root/dev/shm 2>/dev/null
+ln -sf /proc/self/fd   /root/dev/fd     2>/dev/null
+ln -sf /proc/self/fd/0 /root/dev/stdin  2>/dev/null
+ln -sf /proc/self/fd/1 /root/dev/stdout 2>/dev/null
+ln -sf /proc/self/fd/2 /root/dev/stderr 2>/dev/null
+
+# Deliberately do NOT unmount /cd. The loop device backing /root has /cd as its
+# backing store; unmounting /cd while /root is live leaves the real rootfs
+# without a readable backing file, and the system wedges the moment systemd
+# starts reading from it. It costs one loop mount for the life of the session.
 exec $BB switch_root /root "$INIT"
