@@ -36,37 +36,11 @@ done
 
 mkdir -p "$BUILD"
 
-echo "### [1/6] Bootstrapping base system ($SUITE)..."
-
-stage1() {
-  "$SUDO" rm -rf "$ROOTFS"
-  "$SUDO" debootstrap --arch="$ARCH" --variant=minbase \
-    "$SUITE" "$ROOTFS" "$MIRROR"
-  # give the chroot working DNS so apt/in-chroot fetch works
-  [ -f /etc/resolv.conf ] && "$SUDO" cp /etc/resolv.conf "$ROOTFS/etc/resolv.conf"
-  echo "   base bootstrap done."
-}
-
-stage2_install() {
-  echo "### [2/6] Installing desktop, apps, package base inside rootfs..."
-  # proper full sources so universe/multiverse apps resolve
-  "$SUDO" bash -c "cat > '$ROOTFS/etc/apt/sources.list' <<'SRC'
-deb $MIRROR $SUITE main restricted universe multiverse
-deb $MIRROR $SUITE-updates main restricted universe multiverse
-deb $MIRROR $SUITE-security main restricted universe multiverse
-deb-src $MIRROR $SUITE main restricted universe multiverse
-SRC"
-  # bind-mount /proc /sys /dev so apt postinst scripts work inside chroot
-  "$SUDO" mkdir -p "$ROOTFS"/{proc,sys,dev,dev/pts}
-  "$SUDO" mount --bind /proc  "$ROOTFS/proc"  2>/dev/null || true
-  "$SUDO" mount --bind /sys   "$ROOTFS/sys"   2>/dev/null || true
-  "$SUDO" mount --bind /dev   "$ROOTFS/dev"   2>/dev/null || true
-  mountpoint -q "$ROOTFS/dev/pts" || "$SUDO" mount -t devpts none "$ROOTFS/dev/pts" 2>/dev/null || true
-
-# The install helper lives in its own file, written with a QUOTED heredoc so
-# its own $variables survive verbatim. The apt-setup heredoc below is
-# unquoted (it intentionally expands $WORLDS and $(...)), so a function defined
-# inline there would be mangled at generation time.
+# The resilient package installer is defined at top level, not inside a stage.
+# It used to live inside stage2_install(), which meant it was not written until
+# a stage ran - but preflight() checks for it and aborts before any stage runs,
+# so every clean build died with "neither kapt() nor kapt-lib.sh is available".
+# Defining it here means the function exists for preflight and for every stage.
 cat > "$BUILD/kapt-lib.sh" <<'KAPTEOF'
 #!/bin/bash
 # kapt: resilient package install.
@@ -123,6 +97,38 @@ KAPTEOF
 # shellcheck source=/dev/null
 . "$BUILD/kapt-lib.sh"
 
+
+echo "### [1/6] Bootstrapping base system ($SUITE)..."
+
+stage1() {
+  "$SUDO" rm -rf "$ROOTFS"
+  "$SUDO" debootstrap --arch="$ARCH" --variant=minbase \
+    "$SUITE" "$ROOTFS" "$MIRROR"
+  # give the chroot working DNS so apt/in-chroot fetch works
+  [ -f /etc/resolv.conf ] && "$SUDO" cp /etc/resolv.conf "$ROOTFS/etc/resolv.conf"
+  echo "   base bootstrap done."
+}
+
+stage2_install() {
+  echo "### [2/6] Installing desktop, apps, package base inside rootfs..."
+  # proper full sources so universe/multiverse apps resolve
+  "$SUDO" bash -c "cat > '$ROOTFS/etc/apt/sources.list' <<'SRC'
+deb $MIRROR $SUITE main restricted universe multiverse
+deb $MIRROR $SUITE-updates main restricted universe multiverse
+deb $MIRROR $SUITE-security main restricted universe multiverse
+deb-src $MIRROR $SUITE main restricted universe multiverse
+SRC"
+  # bind-mount /proc /sys /dev so apt postinst scripts work inside chroot
+  "$SUDO" mkdir -p "$ROOTFS"/{proc,sys,dev,dev/pts}
+  "$SUDO" mount --bind /proc  "$ROOTFS/proc"  2>/dev/null || true
+  "$SUDO" mount --bind /sys   "$ROOTFS/sys"   2>/dev/null || true
+  "$SUDO" mount --bind /dev   "$ROOTFS/dev"   2>/dev/null || true
+  mountpoint -q "$ROOTFS/dev/pts" || "$SUDO" mount -t devpts none "$ROOTFS/dev/pts" 2>/dev/null || true
+
+# The install helper lives in its own file, written with a QUOTED heredoc so
+# its own $variables survive verbatim. The apt-setup heredoc below is
+# unquoted (it intentionally expands $WORLDS and $(...)), so a function defined
+# inline there would be mangled at generation time.
 
 cat > "$BUILD/apt.sh" <<EOF
 #!/bin/bash
