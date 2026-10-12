@@ -112,6 +112,18 @@ kapt() {
 }
 KAPTEOF
 
+# Define kapt() in THIS shell now that the library exists on disk.
+#
+# Previously kapt-lib.sh was written to $BUILD and then only copied into the
+# rootfs - it was never sourced into the host shell. Every "kapt label pkg..."
+# call therefore hit the shell's command-not-found path, and the preflight
+# check ("neither kapt() nor kapt-lib.sh is available") aborted every clean
+# build before a single package was fetched. That is why no fresh ISO could be
+# produced from a clean tree.
+# shellcheck source=/dev/null
+. "$BUILD/kapt-lib.sh"
+
+
 cat > "$BUILD/apt.sh" <<EOF
 #!/bin/bash
 set -e
