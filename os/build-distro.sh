@@ -585,7 +585,17 @@ stage_branding() {
   local _rc
   for _rc in "$ROOTFS"/home/*/.bashrc; do
     [ -f "$_rc" ] || continue
-    "$SUDO" sed -i -E 's/\[ (-[nz]) "\$([A-Za-z_][A-Za-z0-9_]*)"([ \t]*)\]/[ \1 "\${\2:-}"\3]/g' "$_rc"
+    # Guard every test that dereferences a possibly-unset variable:
+    #   [ -n "$VAR" ]  /  [ -z "$VAR" ]  /  [ "$VAR" = x ]  /  [ "$VAR" != x ]
+    # KorrinOS runs the login shell with 'set -u', so any of these kills the
+    # session. Ubuntu's stock .bashrc has several (force_color_prompt,
+    # color_prompt, debian_chroot) and each one dropped the user straight back
+    # to the login prompt.
+    "$SUDO" sed -i -E \
+      -e 's/\[ (-[nz]) "\$([A-Za-z_][A-Za-z0-9_]*)"([ \t]*)\]/[ \1 "\${\2:-}"\3]/g' \
+      -e 's/\[ "\$([A-Za-z_][A-Za-z0-9_]*)"([ \t]*[=!]+[ \t]*)/[ "${\1:-}"\2/g' \
+      "$_rc"
+    "$SUDO" sed -i -E 's/\[ (-[nz]) "\$([A-Za-z_][A-Za-z0-9_]*)"([ \t]*)\]/[ \1 "\${\2:-}"\3]/g; s/\[ "\$([A-Za-z_][A-Za-z0-9_]*)"([ \t]*[=!]+[ \t]*)/[ "${\1:-}"\2/g' "$ROOTFS/etc/skel/.bashrc"
     echo "### [branding] made $(basename "$(dirname "$_rc")")/.bashrc nounset-safe"
   done
 
