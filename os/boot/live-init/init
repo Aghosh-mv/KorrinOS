@@ -1,14 +1,24 @@
 #!/bin/busybox sh
-# KorrinOS live-boot init for a freshly built kernel.
+# KorrinOS live-boot init.
 #
-# The shipped ISO pairs its kernel with an initramfs generated for a different
-# kernel release, so every modprobe inside that initramfs fails on vermagic and
-# udev never populates /dev. The root-device scan then spins forever.
+# Mounts the live media, exposes the real distribution userspace, and hands over
+# to systemd.
 #
-# This initramfs needs no modules at all: the kernel has SQUASHFS, BLK_DEV_LOOP,
-# ISO9660, DEVTMPFS and EXT4 built in, so it can mount the live media and hand
-# off to the real distribution userspace directly.
-
+# Two things this must get right, both of which cost real debugging time:
+#
+# 1. No modules. The ISO's own initramfs is generated for a different kernel
+#    release, so every modprobe inside it fails on vermagic and udev never
+#    populates /dev. This initramfs loads nothing: the kernel has SQUASHFS,
+#    BLK_DEV_LOOP, ISO9660, DEVTMPFS and EXT4 built in.
+#
+# 2. The handed-over root must be WRITABLE. The squashfs is read-only, and a
+#    read-only root makes systemd fall over immediately:
+#      systemd-logind: code=exited, status=238/STATE_DIRECTORY
+#    because it cannot create /var/lib/systemd/linger. snapd and anything else
+#    that persists state fails the same way, and the whole boot reports
+#    "degraded" with no desktop. So the squashfs becomes the lower layer of an
+#    overlay, with a tmpfs upper layer giving a writable root that still costs
+#    no space on the medium.
 BB=/bin/busybox
 export PATH=/bin
 
@@ -44,41 +54,54 @@ for cand in /cd/casper/filesystem.squashfs /cd/live/filesystem.squashfs; do
 	[ -f "$cand" ] && { ROOTIMG="$cand"; break; }
 done
 [ -n "$ROOTIMG" ] || fail "no filesystem.squashfs on the media"
-echo "KINIT: root image $ROOTIMG ($(stat -c %s "$ROOTIMG") bytes)"
+echo "KINIT: root image $ROOTIMG ($($BB stat -c %s "$ROOTIMG") bytes)"
 
-echo "KINIT: loop-mounting root"
-mount -o loop,ro "$ROOTIMG" /root || fail "cannot loop-mount $ROOTIMG"
+# --- build a writable overlay over the read-only squashfs -------------------
+# Keep /cd mounted: the loop device uses it as its backing store, and unmounting
+# it leaves the lower layer unreadable.
+echo "KINIT: loop-mounting root read-only as lower layer"
+mount -o loop,ro "$ROOTIMG" /low || fail "cannot loop-mount $ROOTIMG"
 
-# Hand over to the real distro userspace.
-if [ -x /root/sbin/init ]; then
+# tmpfs holds the overlay upper/work layers, so writes cost RAM, not the medium.
+mount -t tmpfs -o size=75%,mode=0755 tmpfs /ovl || fail "cannot mount overlay tmpfs"
+mkdir -p /ovl/upper /ovl/work || fail "cannot create overlay dirs"
+
+ROOT=/newroot
+mkdir -p "$ROOT" || fail "cannot create $ROOT"
+echo "KINIT: overlaying writable upper layer"
+if ! mount -t overlay overlay \
+	-o "lowerdir=/low,upperdir=/ovl/upper,workdir=/ovl/work" "$ROOT"; then
+	# Overlay can be unavailable; a read-only root is worse than none, but a
+	# booting shell beats a dead machine, so fall back and say so plainly.
+	echo "KINIT: WARN overlayfs unavailable - continuing READ-ONLY"
+	echo "KINIT: WARN systemd-logind and snapd will fail without a writable /var"
+	ROOT=/low
+	mount -o remount,rw "$ROOT" 2>/dev/null || true
+fi
+
+if [ -x "$ROOT/sbin/init" ]; then
 	INIT=/sbin/init
-elif [ -x /root/usr/lib/systemd/systemd ]; then
+elif [ -x "$ROOT/usr/lib/systemd/systemd" ]; then
 	INIT=/lib/systemd/systemd
 else
 	fail "no /sbin/init or systemd in the rootfs"
 fi
 
-echo "KINIT: switch_root into rootfs, exec $INIT"
+echo "KINIT: switch_root into $ROOT, exec $INIT"
 
-# The real userspace expects these to already exist. switch_root carries the
-# current mounts across, so everything mounted here must be mounted at the path
-# the new root expects - /dev/pts under /dev, /run as its own tmpfs, and so on.
-#
-# systemd blocks right after "Started Journal Service" and then stops dead if
-# /run is not a tmpfs, and it cannot create ptys without devpts.
-mkdir -p /root/proc /root/sys /root/dev /root/dev/pts /root/run /root/tmp
-mount -t devpts -o gid=5,mode=620 devpts /root/dev/pts 2>/dev/null || echo "KINIT: warn devpts"
-mount -t tmpfs tmpfs /root/run                          2>/dev/null || echo "KINIT: warn run"
-mount -t tmpfs -o mode=1777,size=10% tmpfs /root/dev/shm   2>/dev/null || echo "KINIT: warn shm"
-mount -t tmpfs -o mode=755,size=10%  tmpfs /root/dev/mqueue 2>/dev/null || echo "KINIT: warn mqueue"
-chmod 1777 /root/dev/shm 2>/dev/null
-ln -sf /proc/self/fd   /root/dev/fd     2>/dev/null
-ln -sf /proc/self/fd/0 /root/dev/stdin  2>/dev/null
-ln -sf /proc/self/fd/1 /root/dev/stdout 2>/dev/null
-ln -sf /proc/self/fd/2 /root/dev/stderr 2>/dev/null
+# The real userspace expects these already mounted. switch_root carries the
+# current mounts across, so each must be mounted at the path the new root wants.
+# systemd blocks right after "Started Journal Service" if /run is not a tmpfs,
+# and nothing can allocate a pty without devpts.
+mkdir -p "$ROOT"/proc "$ROOT"/sys "$ROOT"/dev "$ROOT"/dev/pts "$ROOT"/run "$ROOT"/tmp
+mount -t devpts -o gid=5,mode=620 devpts "$ROOT/dev/pts" 2>/dev/null || echo "KINIT: warn devpts"
+mount -t tmpfs tmpfs "$ROOT/run"                          2>/dev/null || echo "KINIT: warn run"
+mount -t tmpfs -o mode=1777,size=25% tmpfs "$ROOT/dev/shm"  2>/dev/null || echo "KINIT: warn shm"
+mount -t tmpfs -o mode=755,size=5%  tmpfs "$ROOT/dev/mqueue" 2>/dev/null || echo "KINIT: warn mqueue"
+chmod 1777 "$ROOT/dev/shm" 2>/dev/null
+ln -sf /proc/self/fd    "$ROOT/dev/fd"     2>/dev/null
+ln -sf /proc/self/fd/0  "$ROOT/dev/stdin"  2>/dev/null
+ln -sf /proc/self/fd/1  "$ROOT/dev/stdout" 2>/dev/null
+ln -sf /proc/self/fd/2  "$ROOT/dev/stderr" 2>/dev/null
 
-# Deliberately do NOT unmount /cd. The loop device backing /root has /cd as its
-# backing store; unmounting /cd while /root is live leaves the real rootfs
-# without a readable backing file, and the system wedges the moment systemd
-# starts reading from it. It costs one loop mount for the life of the session.
-exec $BB switch_root /root "$INIT"
+exec $BB switch_root "$ROOT" "$INIT"
