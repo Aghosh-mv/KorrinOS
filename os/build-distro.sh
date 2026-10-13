@@ -616,12 +616,22 @@ stage_branding() {
   # because LightDM is ordered After=logind the graphical session can never
   # start - the image sat at "korrinos login:" on a text console with LightDM
   # and XFCE both installed and correctly enabled.
-  if ! grep -q "^systemd-logind:" "$ROOTFS/etc/passwd" 2>/dev/null; then
-    echo "systemd-logind:x:998:998:systemd Logind:/:/usr/sbin/nologin" | "$SUDO" tee -a "$ROOTFS/etc/passwd" >/dev/null
-    echo "systemd-logind:x:998:" | "$SUDO" tee -a "$ROOTFS/etc/group" >/dev/null
-    echo "systemd-logind:!:19000::::::" | "$SUDO" tee -a "$ROOTFS/etc/shadow" >/dev/null
-    echo "### [branding] created the missing systemd-logind system user"
-  fi
+  # Add any system user a bundled systemd unit expects but debootstrap skipped.
+  # A unit whose User= does not resolve fails outright, and when that unit is
+  # ordered early (logind) it loop-restarts and takes the rest of the boot with
+  # it. uid:gid chosen from the free range and asserted free before use.
+  _add_sysuser() { # name uid gid gecos
+    local n="$1" uid="$2" gid="$3" g="$4"
+    grep -q "^$n:" "$ROOTFS/etc/passwd" 2>/dev/null && return 0
+    grep -q ":$uid:" "$ROOTFS/etc/passwd" 2>/dev/null && { echo "### [branding] SKIP $n - uid $uid already taken"; return 0; }
+    echo "$n:x:$uid:$gid:$g:/:/usr/sbin/nologin" | "$SUDO" tee -a "$ROOTFS/etc/passwd" >/dev/null
+    grep -q "^$n:" "$ROOTFS/etc/group" 2>/dev/null || echo "$n:x:$gid:" | "$SUDO" tee -a "$ROOTFS/etc/group" >/dev/null
+    echo "$n:!:19000::::::" | "$SUDO" tee -a "$ROOTFS/etc/shadow" >/dev/null
+    echo "### [branding] created missing system user $n ($uid:$gid)"
+  }
+  _add_sysuser systemd-logind   998 998 "systemd Logind"
+  _add_sysuser systemd-oom      999 999 "systemd OOM"
+  _add_sysuser systemd-timesync 997 997 "systemd Time Synchronization"
 
 
 
