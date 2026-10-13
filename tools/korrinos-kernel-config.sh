@@ -56,6 +56,16 @@ REQUIRED=(
   # modprobe retry loop. The matching certificate must exist at
   # certs/signing_key.x509.pem; see tools/make-module-cert.sh.
   "SYSTEM_TRUSTED_KEYS=certs/signing_key.x509.pem"
+  # Display drivers must be built in. The ISO installs no kernel modules at all,
+  # so anything left as CONFIG_=m can never load. DRM_BOCHS is the driver that
+  # serves QEMU's -vga std (bochs-drm) and DRM_VIRTIO_GPU serves cloud VMs; with
+  # both as modules there was no usable display, so X could not start and the
+  # desktop could never come up.
+  "DRM=y"
+  "DRM_KMS=y"
+  "DRM_BOCHS=y"
+  "DRM_VIRTIO_GPU=y"
+  "DRM_FBDEV_EMULATION=y"
 )
 
 # --- the KorrinOS feature set ------------------------------------------------
