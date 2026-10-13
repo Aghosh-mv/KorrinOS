@@ -611,6 +611,18 @@ stage_branding() {
     "$ROOTFS/etc/systemd/system/default.target" 2>/dev/null || true
   echo "### [branding] enabled lightdm + default.target -> graphical.target"
 
+  # systemd-logind has no system user in this image, and logind exits
+  # immediately without one. It then restart-loops for the whole boot, and
+  # because LightDM is ordered After=logind the graphical session can never
+  # start - the image sat at "korrinos login:" on a text console with LightDM
+  # and XFCE both installed and correctly enabled.
+  if ! grep -q "^systemd-logind:" "$ROOTFS/etc/passwd" 2>/dev/null; then
+    echo "systemd-logind:x:998:998:systemd Logind:/:/usr/sbin/nologin" | "$SUDO" tee -a "$ROOTFS/etc/passwd" >/dev/null
+    echo "systemd-logind:x:998:" | "$SUDO" tee -a "$ROOTFS/etc/group" >/dev/null
+    echo "systemd-logind:!:19000::::::" | "$SUDO" tee -a "$ROOTFS/etc/shadow" >/dev/null
+    echo "### [branding] created the missing systemd-logind system user"
+  fi
+
 
 
   echo "### [branding] Writing KorrinOS distribution identity into rootfs..."
