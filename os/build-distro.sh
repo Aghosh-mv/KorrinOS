@@ -597,7 +597,20 @@ stage_branding() {
       "$_rc"
     "$SUDO" sed -i -E 's/\[ (-[nz]) "\$([A-Za-z_][A-Za-z0-9_]*)"([ \t]*)\]/[ \1 "\${\2:-}"\3]/g; s/\[ "\$([A-Za-z_][A-Za-z0-9_]*)"([ \t]*[=!]+[ \t]*)/[ "${\1:-}"\2/g' "$ROOTFS/etc/skel/.bashrc"
     echo "### [branding] made $(basename "$(dirname "$_rc")")/.bashrc nounset-safe"
+    echo "### [branding] made $(basename "$(dirname "$_rc")")/.bashrc nounset-safe"
   done
+
+  # Boot to a desktop, not a console. LightDM and XFCE are installed and
+  # autologin for the korrinos user is configured, but lightdm.service was
+  # never enabled and default.target was still multi-user, so the image always
+  # stopped at "korrinos login:" on a text console with no graphical session.
+  # Verified by framebuffer capture: the VGA console showed the login prompt.
+  "$SUDO" ln -sf /lib/systemd/system/lightdm.service \
+    "$ROOTFS/etc/systemd/system/multi-user.target.wants/lightdm.service" 2>/dev/null || true
+  "$SUDO" ln -sf /lib/systemd/system/graphical.target \
+    "$ROOTFS/etc/systemd/system/default.target" 2>/dev/null || true
+  echo "### [branding] enabled lightdm + default.target -> graphical.target"
+
 
 
   echo "### [branding] Writing KorrinOS distribution identity into rootfs..."
