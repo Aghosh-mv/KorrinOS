@@ -576,6 +576,20 @@ stage_branding() {
     echo "### [branding] guarded XDG_DATA_DIRS in apps-bin-path.sh (set -u login fix)"
   fi
 
+  # Same class of bug in the per-user shell rc: Ubuntu's default .bashrc tests
+  # "[ -n \"\$force_color_prompt\" ]" with the variable unset. With 'set -u'
+  # active in the KorrinOS shell that kills the login shell on its first prompt
+  # ("force_color_prompt: unbound variable"), so the session dies and returns
+  # straight to the login prompt. Guard every "[ -n \"\$VAR\" ]" test in the
+  # login user's .bashrc with ${VAR:-}.
+  local _rc
+  for _rc in "$ROOTFS"/home/*/.bashrc; do
+    [ -f "$_rc" ] || continue
+    "$SUDO" sed -i -E 's/\[ (-[nz]) "\$([A-Za-z_][A-Za-z0-9_]*)"([ \t]*)\]/[ \1 "\${\2:-}"\3]/g' "$_rc"
+    echo "### [branding] made $(basename "$(dirname "$_rc")")/.bashrc nounset-safe"
+  done
+
+
   echo "### [branding] Writing KorrinOS distribution identity into rootfs..."
   "$SUDO" bash -c "cat > '$ROOTFS/etc/os-release' <<'EOS'
 PRETTY_NAME="KorrinOS 2.0"
