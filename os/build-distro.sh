@@ -559,6 +559,23 @@ stage4_live() {
 }
 
 stage_branding() {
+  # Ubuntu's snap-provided /etc/profile.d/apps-bin-path.sh dereferences
+  # $XDG_DATA_DIRS unguarded. KorrinOS enables `set -u` in the user's shell, so
+  # every login shell died on its first prompt with
+  #   -bash: XDG_DATA_DIRS: unbound variable
+  # and dropped straight back to the login prompt - the machine looked wedged
+  # at a console login that could never hold a session. Guard every reference
+  # with ${VAR:-} so sourcing it is safe under nounset.
+  local _xdg="$ROOTFS/etc/profile.d/apps-bin-path.sh"
+  if [ -f "$_xdg" ]; then
+    "$SUDO" sed -i -E \
+      -e 's/test -z "\$XDG_DATA_DIRS"/test -z "\${XDG_DATA_DIRS:-}"/' \
+      -e 's/test -n "\$\{XDG_DATA_DIRS##/test -n "\${XDG_DATA_DIRS:-}\${XDG_DATA_DIRS##/' \
+      -e 's/export XDG_DATA_DIRS="\$XDG_DATA_DIRS:/export XDG_DATA_DIRS="\${XDG_DATA_DIRS:-}:/' \
+      "$_xdg"
+    echo "### [branding] guarded XDG_DATA_DIRS in apps-bin-path.sh (set -u login fix)"
+  fi
+
   echo "### [branding] Writing KorrinOS distribution identity into rootfs..."
   "$SUDO" bash -c "cat > '$ROOTFS/etc/os-release' <<'EOS'
 PRETTY_NAME="KorrinOS 2.0"
