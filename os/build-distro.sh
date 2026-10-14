@@ -674,6 +674,40 @@ stage2b_branding() {
   echo "   boot branding installed (Plymouth + GRUB theme)."
 }
 
+# Ship the modules that match the kernel we are actually shipping.
+#
+# os/build-distro.sh has never run modules_install or depmod, so the image
+# carried a kernel with zero modules of its own. Everything that could be built
+# in was built in, and anything left as CONFIG_=m simply could not load:
+#   - Xorg had no display driver (DRM_BOCHS was a module)
+#   - systemd-modules-load failed on every boot
+#   - the live rootfs is an overlay, so /lib/modules lives in RAM with no way to
+#     load anything
+#
+# Install into the rootfs under the exact release string the built bzImage
+# reports, then depmod so the aliases resolve.
+stage4_modules() {
+  local KREL
+  KREL=$(make -s kernelrelease 2>/dev/null | tail -1)
+  [ -n "$KREL" ] || { echo "### [modules] SKIP - cannot determine kernel release"; return 0; }
+  echo "### [modules] installing modules for $KREL into the image..."
+
+  if ! "$SUDO" make -C "$(dirname "$0")/.." modules_install \
+        INSTALL_MOD_PATH="$ROOTFS" modules_install >/dev/null 2>&1; then
+    echo "### [modules] modules_install failed - continuing without them"
+    return 0
+  fi
+
+  "$SUDO" mkdir -p "$ROOTFS/usr/lib/modules/$KREL"
+  if [ -d "$ROOTFS/lib/modules/$KREL" ] && [ ! -d "$ROOTFS/usr/lib/modules/$KREL" ]; then
+    "$SUDO" cp -a "$ROOTFS/lib/modules/$KREL/." "$ROOTFS/usr/lib/modules/$KREL/" 2>/dev/null || true
+  fi
+  "$SUDO" depmod -b "$ROOTFS" "$KREL" 2>/dev/null || echo "### [modules] WARN depmod failed"
+  local n
+  n=$(find "$ROOTFS/lib/modules/$KREL" "$ROOTFS/usr/lib/modules/$KREL" -name '*.ko*' 2>/dev/null | wc -l)
+  echo "### [modules] $n module files staged for $KREL"
+}
+
 stage5_squashfs() {
   echo "### [5/6] Building squashfs of the full rootfs (compressing)..."
   # Never compress a tree that still has /proc or /sys bind-mounted into it.
@@ -1274,7 +1308,7 @@ stage7_verify() {
 run() {
   preflight || { echo "ABORT: preflight failed."; exit 1; }
   stage1 && stage2_install && stage3_worlds && stage_branding && stage2b_branding && stage_i18n_fonts && stage_kcommand && stage4_live \
-    && stage5_squashfs && stage5_caspermaterials && stage6_iso && stage7_verify \
+    && stage4_modules && stage5_squashfs && stage5_caspermaterials && stage6_iso && stage7_verify \
     && { echo "DONE: KorrinOS full distribution ISO ready."; } \
     || echo "BUILD FAILED: a stage returned non-zero (see output above). ISO is NOT complete."
 }
@@ -1283,7 +1317,7 @@ rebuild() {
   preflight || { echo "ABORT: preflight failed."; exit 1; }
   test -d "$ROOTFS/etc" || { echo "no rootfs yet - run full first"; exit 1; }
   stage2_install && stage3_worlds && stage_branding && stage2b_branding && stage_i18n_fonts && stage_kcommand && stage4_live \
-    && stage5_squashfs && stage5_caspermaterials && stage6_iso && stage7_verify \
+    && stage4_modules && stage5_squashfs && stage5_caspermaterials && stage6_iso && stage7_verify \
     && { echo "DONE: KorrinOS rebuild (kept base rootfs)."; } \
     || echo "BUILD FAILED: a stage returned non-zero (see output above). ISO is NOT complete."
 }
