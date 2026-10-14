@@ -83,16 +83,21 @@ static ssize_t cw_write(struct file *file, const char __user *ubuf,
 	} else if (!strcmp(cmd, "off")) {
 		cw_enabled = false;
 		cw_popup_shown = false;
+		del_timer_sync(&cw_spread_timer);
 	} else if (!strcmp(cmd, "freq") && arg) {
 		val = simple_strtol(arg, NULL, 10);
 		cw_freq_khz = clamp(val, 100, 1000);
 		cw_base_freq_khz = cw_freq_khz;
 	} else if (!strcmp(cmd, "spread") && arg) {
 		val = simple_strtol(arg, NULL, 10);
-		if (val)
+		if (val) {
 			cw_spread_spectrum = true;
-		else
+			if (cw_enabled)
+				mod_timer(&cw_spread_timer, jiffies + msecs_to_jiffies(10));
+		} else {
 			cw_spread_spectrum = false;
+			del_timer_sync(&cw_spread_timer);
+		}
 	} else {
 		mutex_unlock(&cw_lock);
 		return -EINVAL;
@@ -127,13 +132,15 @@ static void cw_spread_timer_fn(struct timer_list *t)
 	mutex_unlock(&cw_lock);
 
 resched:
-	mod_timer(&cw_spread_timer, jiffies + msecs_to_jiffies(10));
+	if (cw_enabled && cw_spread_spectrum)
+		mod_timer(&cw_spread_timer, jiffies + msecs_to_jiffies(10));
 }
 
 static int __init tinker_cw_init(void)
 {
 	timer_setup(&cw_spread_timer, cw_spread_timer_fn, 0);
-	mod_timer(&cw_spread_timer, jiffies + msecs_to_jiffies(10));
+	/* Leave the timer unarmed until the user turns spreading on: a disabled
+	 * spread must not wake us 100 times per second forever (see audit B3). */
 
 	if (tinker_proc_root)
 		proc_create("coil_whine", 0644, tinker_proc_root, &cw_fops);

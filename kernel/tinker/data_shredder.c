@@ -35,7 +35,7 @@ static int shred_show(struct seq_file *m, void *v)
 	mutex_lock(&shred_lock);
 	seq_printf(m, "swap_on_shutdown:    %u\n", shred_swap_on_shutdown);
 	seq_printf(m, "scramble_hwid:       %u\n", shred_should_scramble_hwid);
-	seq_printf(m, "scrub_pages:         %u\n", shred_scrub_pages);
+	seq_printf(m, "scrub_pages:         %u   (NOT IMPLEMENTED - no swap write path)\n", shred_scrub_pages);
 	seq_printf(m, "shred_ops:           %llu\n",
 		   (unsigned long long)atomic64_read(&shred_ops));
 	seq_puts(m, "policy:              never touches active processes\n");
@@ -79,8 +79,20 @@ static ssize_t shred_write(struct file *file, const char __user *ubuf,
 		val = simple_strtol(arg, NULL, 10);
 		shred_should_scramble_hwid = val ? 1 : 0;
 	} else if (!strcmp(cmd, "run")) {
-		/* best-effort: scrub a bounded number of free swap pages */
-		shred_scrub_pages += 4096;
+		/*
+		 * NO-OP WITH HONEST REPORTING.
+		 *
+		 * Real swap scrubbing is not implemented in this kernel: there is no
+		 * call into swap_writepage / free_page_list / anything that would
+		 * overwrite swap slots. The previous code did `shred_scrub_pages +=
+		 * 4096; atomic64_inc(&shred_ops)` with no underlying write, which
+		 * reported progress that did not happen. That is the worst failure mode
+		 * available to a privacy-oriented module - a readout that lies.
+		 *
+		 * `run` now increments only never-scrubbed-noted ops counter, and the
+		 * scrub_pages readout stays at 0 until a real backend (out-of-tree
+		 * module using in-tree swap APIs) actually scrubs anything.
+		 */
 		atomic64_inc(&shred_ops);
 	} else {
 		mutex_unlock(&shred_lock);
