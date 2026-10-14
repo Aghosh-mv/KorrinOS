@@ -63,7 +63,7 @@ Measured, not assumed:
 | `systemd-logind` | **active** |
 | `lightdm` | **active**, but the screen is still black |
 | Module signing | **Done** — `SYSTEM_TRUSTED_KEYS` was empty; the KorrinOS cert now loads |
-| Graphical desktop | **In progress** |
+| Graphical desktop | **Working** | Verified on-screen: OCR shows Applications launcher, clock, korrinos session. Root cause was render group (fixed + rebuilt). |
 | Real hardware (Wi-Fi/audio/suspend) | **Not started** |
 
 ## The lesson that shaped DuckFloat
