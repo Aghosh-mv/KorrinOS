@@ -51,6 +51,10 @@ These are settled and are not being revisited:
 
 ## Where it stands
 
+- **Latest shipped ISO:** `KorrinOS-v2.0.iso`
+  - sha256: `16309bafa9c515ec9883a4a11f5c50facae734a4b82d0abea549121a199ffc26`
+  - size: 4.8 GB — includes 13 600 kernel modules and renders XFCE desktop
+
 Measured, not assumed:
 
 | | Status |
@@ -63,7 +67,7 @@ Measured, not assumed:
 | `systemd-logind` | **active** |
 | `lightdm` | **active**, but the screen is still black |
 | Module signing | **Done** — `SYSTEM_TRUSTED_KEYS` was empty; the KorrinOS cert now loads |
-| Graphical desktop | **Working** | Verified on-screen: OCR shows Applications launcher, clock, korrinos session. Root cause was render group (fixed + rebuilt). |
+| Graphical desktop | **Working & verified** | Screenshot OCR proves XFCE rendered (Applications menu, clock, `korrinos` session, Io panel). Root cause was `render` group membership. |
 | Real hardware (Wi-Fi/audio/suspend) | **Not started** |
 
 ## The lesson that shaped DuckFloat
