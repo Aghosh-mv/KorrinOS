@@ -83,7 +83,7 @@ static ssize_t cw_write(struct file *file, const char __user *ubuf,
 	} else if (!strcmp(cmd, "off")) {
 		cw_enabled = false;
 		cw_popup_shown = false;
-		del_timer_sync(&cw_spread_timer);
+		timer_delete_sync(&cw_spread_timer);
 	} else if (!strcmp(cmd, "freq") && arg) {
 		val = simple_strtol(arg, NULL, 10);
 		cw_freq_khz = clamp(val, 100, 1000);
@@ -96,7 +96,7 @@ static ssize_t cw_write(struct file *file, const char __user *ubuf,
 				mod_timer(&cw_spread_timer, jiffies + msecs_to_jiffies(10));
 		} else {
 			cw_spread_spectrum = false;
-			del_timer_sync(&cw_spread_timer);
+			timer_delete_sync(&cw_spread_timer);
 		}
 	} else {
 		mutex_unlock(&cw_lock);
