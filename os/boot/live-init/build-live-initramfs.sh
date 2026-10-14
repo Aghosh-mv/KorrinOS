@@ -54,7 +54,7 @@ INIT_SRC="$HERE/init"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-mkdir -p "$WORK/root"/{bin,dev,proc,sys,cd,root}
+mkdir -p "$WORK/root"/{bin,dev,proc,sys,cd,root,low,ovl,newroot}
 cp "$BUSYBOX" "$WORK/root/bin/busybox"
 install -m 0755 "$INIT_SRC" "$WORK/root/init"
 

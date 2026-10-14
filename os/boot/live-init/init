@@ -35,6 +35,11 @@ mount -t proc     proc     /proc  || echo "KINIT: warn proc"
 mount -t sysfs    sysfs    /sys   || echo "KINIT: warn sys"
 mount -t devtmpfs devtmpfs /dev   || echo "KINIT: warn devtmpfs"
 
+# The mount points below are created here rather than only in the initramfs
+# builder, so the init works with any initramfs layout. Without these the
+# loop mount silently fails with "cannot loop-mount" and drops to a shell.
+mkdir -p /low /ovl /newroot /cd
+
 # /dev/sr0 can take a moment to appear on some hosts.
 CD=""
 i=0
