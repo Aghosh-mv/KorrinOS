@@ -441,7 +441,11 @@ EOF'
 
   # Create live user for ISO (korrinos/korrinos)
   "$SUDO" chroot "$ROOTFS" bash -c '
-    useradd -m -s /bin/bash -G sudo,adm,dialout,cdrom,floppy,audio,dip,video,plugdev,netdev korrinos 2>/dev/null || true
+    useradd -m -s /bin/bash -G sudo,adm,dialout,cdrom,floppy,audio,dip,video,render,plugdev,netdev korrinos 2>/dev/null || true
+    # Xorg runs as the korrinos user without Xorg.wrap; the modesetting DDX
+    # needs read/write on /dev/dri/card0 (group render) or it fails with
+    # "Cannot open /dev/dri/card0: Permission denied" and there is no screen.
+    gpasswd -a korrinos render >/dev/null 2>&1 || true
     echo "korrinos:korrinos" | chpasswd 2>/dev/null || true
     echo "root:korrinos" | chpasswd 2>/dev/null || true
     # Auto-login for live session
