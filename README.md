@@ -14,12 +14,22 @@
 
 | Option | Link |
 |---|---|
-| **Primary ISO (SourceForge Global CDN)** | [Download KorrinOS-v1.3.iso](https://sourceforge.net/projects/korrinos/files/v1.3/KorrinOS-v1.3.iso/download) |
-| **SHA256** | `82bd9012fdd21ad96f8b1dabc60992ca07928807a5fe07db393e58e01a1999b6` |
+| **Primary ISO (released)** | `KorrinOS-v2.0.iso` (commit `cde4f1fe9`, 4.8 GB) |
+| **SHA256** | `16309bafa9c515ec9883a4a11f5c50facae734a4b82d0abea549121a199ffc26` |
 
 > The ISO is ~7.6 GB. Verify the SHA256 after download.
 
 ---
+
+## Verified desktop (real screenshot, not a render)
+
+![KorrinOS v2.0 live desktop — XFCE running under Xorg, captured via qemu monitor, OCR confirms ‘Applications’ launcher, clock, korrinos session](screenshots/KorrinOS-v2.0-desktop-verified.png)
+
+Booted under TCG; **verified** on-screen with `ocr` (Applications menu, clock
+`Wed 14 Oct, 14:16 korrinos`, task panel, volume indicator). Root-cause of the
+long black screen: the `korrinos` account was missing the `render` group, so
+`/dev/dri/card0` (`root:render`, 0660) refused to Xorg, LDM looped, screen stayed
+black. Fix + ISO rebuild resolved it.
 
 ## The Three Worlds
 
