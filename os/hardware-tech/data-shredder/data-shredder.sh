@@ -1,4 +1,14 @@
 #!/bin/bash
+
+# SAFETY (public release): never run destructive commands unless explicitly
+# acknowledged. Default installers are assistant-only; see docs/installer-safety.md .
+if [ "${KORRINOS_ACCEPT_DESTRUCTIVE:-0}" != "1" ]; then
+    echo "$0: refusing to run: destructive media operations disabled by default"
+    echo "  These scripts can erase entire disks; run only if you know exactly"
+    echo "  how they map onto '$(lsblk -ndo NAME,SIZE 2>/dev/null | head -5)'"
+    echo "  Then export KORRINOS_ACCEPT_DESTRUCTIVE=1 and re-run."
+    exit 0
+fi
 # KorrinOS Data Shredder — One-click nuclear privacy wipe
 # Obfuscates HW ID, randomizes MAC, feeds dummy telemetry, clears caches
 # Does NOT touch active browser sessions or running processes

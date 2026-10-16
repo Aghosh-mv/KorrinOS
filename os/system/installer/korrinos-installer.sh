@@ -1,4 +1,13 @@
 #!/bin/bash
+# SAFETY (public release): never run destructive commands unless explicitly
+# acknowledged. Default installers are assistant-only; see docs/installer-safety.md .
+if [ "${KORRINOS_ACCEPT_DESTRUCTIVE:-0}" != "1" ]; then
+    echo "$0: refusing to run: destructive media operations disabled by default"
+    echo "  These scripts can erase entire disks; verify target explicitly with lsblk,"
+    echo "  then export KORRINOS_ACCEPT_DESTRUCTIVE=1 and re-run."
+    exit 0
+fi
+
 # KorrinOS Real Installer
 # Calamares-based system installer with KorrinOS branding
 # Full disk partitioning, bootloader setup, user creation, post-install config
