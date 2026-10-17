@@ -15,7 +15,7 @@
 | Option | Link |
 |---|---|
 | **Primary ISO (released)** | `KorrinOS-v2.0.iso` (commit `cde4f1fe9`, 4.8 GB) |
-| **SHA256** | `16309bafa9c515ec9883a4a11f5c50facae734a4b82d0abea549121a199ffc26` |
+| **SHA256** | `7586385e6db139848546858fe26cf51a62e58327618b3646effd6fba388ae408` |
 
 > The ISO is ~7.6 GB. Verify the SHA256 after download.
 
